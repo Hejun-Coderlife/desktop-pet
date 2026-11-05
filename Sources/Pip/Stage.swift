@@ -356,6 +356,11 @@ final class Stage {
 
     /// 小人的点击区域（窗口/视图坐标，1:1 点）
     private func petRect() -> CGRect {
+        // 躺着睡时身子横在地上，朝面向的一侧伸出去约 90 点
+        if world.state == .sleep {
+            let x0 = world.facing > 0 ? world.position.x - 34 : world.position.x - 96
+            return CGRect(x: x0, y: world.position.y - 6, width: 130, height: 66)
+        }
         let width = world.halfWidth * 2 + 10
         let height = world.characterHeight
         return CGRect(x: world.position.x - width / 2,
@@ -478,8 +483,9 @@ final class Stage {
         let lift = max(0, world.position.y - world.groundY)
         let t = min(1, lift / 240)
         let scale = (1 - 0.42 * t) * (1 + 0.04 * (1 - t))
-        shadowNode.position = SCNVector3(world.position.x, world.groundY + 1.5, 1)
-        shadowNode.scale = SCNVector3(scale, scale, scale)
+        let lying = world.state == .sleep
+        shadowNode.position = SCNVector3(world.position.x + (lying ? world.facing * 32 : 0), world.groundY + 1.5, 1)
+        shadowNode.scale = SCNVector3(scale * (lying ? 1.9 : 1), scale, scale)
         shadowNode.opacity = 1 - 0.75 * t
     }
 }

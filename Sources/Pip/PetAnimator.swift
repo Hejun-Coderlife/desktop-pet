@@ -97,23 +97,26 @@ enum PetAnimator {
             pose.legRight = -0.2 * (1 - u)
 
         case .sleep:
-            // 坐下（压矮）、头一点一点地打盹、闭眼、冒 z
-            let nod = sin(t * 1.3)
-            pose.squashY = 0.86 + sin(t * 0.9) * 0.015
-            pose.headPitch = 0.12 + max(0, nod) * 0.16
-            pose.headTilt = 0.1
-            pose.bodyLean = -0.04
-            pose.armLeft = 0.25
-            pose.armRight = 0.25
-            pose.legLeft = -1.1
-            pose.legRight = -1.1
+            // 侧躺在地上睡：整个身子朝面向的一侧倒下（脸仍朝着屏幕），肚子随呼吸一起一伏，冒 z
+            let breathe = sin(t * 1.4)
+            pose.bodyLean = sleepLean
+            pose.bob = sleepLift + breathe * 0.6
+            pose.squashY = 0.97 + breathe * 0.012
+            pose.armLeft = 0.15
+            pose.armRight = 0.15
+            pose.legLeft = 0.15
+            pose.legRight = -0.1
             pose.blink = 1
             pose.zzz = t
 
         case .wake:
-            // 伸懒腰：双爪慢慢举高、身体拉长，再落回来
+            // 先从地上坐起来，再伸懒腰：双爪慢慢举高、身体拉长，再落回来
             let u = min(1, world.stateTime / PetWorld.wakeDuration)
-            let reach = sin(u * .pi)
+            let rise = ease(min(1, u / 0.35))
+            pose.bodyLean = sleepLean * (1 - rise)
+            pose.bob = sleepLift * (1 - rise)
+            let v = max(0, (u - 0.35) / 0.65)
+            let reach = sin(v * .pi)
             pose.armLeft = 0.3 + reach * 2.4
             pose.armRight = 0.3 + reach * 2.4
             pose.squashY = 0.9 + reach * 0.2
@@ -184,6 +187,10 @@ enum PetAnimator {
         guard phase > period - window else { return 0 }
         return sin((phase - (period - window)) / window * .pi)
     }
+
+    /// 躺下：身体转约 85°；脚底是转轴，要把身体抬起约一个身体半径才贴着地面
+    static let sleepLean: CGFloat = 1.48
+    static let sleepLift: CGFloat = 30
 
     private static func ease(_ x: CGFloat) -> CGFloat {
         let t = min(max(x, 0), 1)

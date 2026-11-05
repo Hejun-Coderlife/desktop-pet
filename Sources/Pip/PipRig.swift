@@ -103,6 +103,7 @@ final class PipRig: PetRig {
     /// 不跟着朝向镜像的挂件（字要正着读）：z 和牌子
     private let unmirrored = SCNNode()
     private var zzzNodes: [SCNNode] = []
+    private let zzzHolder = SCNNode()
     private let signNode = SCNNode()
     private var signShown: String?
 
@@ -158,6 +159,7 @@ final class PipRig: PetRig {
 
     private func buildExtras() {
         bodyGroup.addChildNode(unmirrored)
+        root.addChildNode(zzzHolder)   // z 不跟着身体躺倒，始终往上飘
         for i in 0..<3 {
             let size: CGFloat = 9 + CGFloat(i) * 3
             let plane = SCNPlane(width: size, height: size)
@@ -169,7 +171,7 @@ final class PipRig: PetRig {
             plane.materials = [m]
             let n = SCNNode(geometry: plane)
             n.isHidden = true
-            unmirrored.addChildNode(n)
+            zzzHolder.addChildNode(n)
             zzzNodes.append(n)
         }
         signNode.isHidden = true
@@ -365,11 +367,14 @@ final class PipRig: PetRig {
 
         // 不镜像的挂件：父节点被 facing 翻了，这里再翻回来
         unmirrored.scale = SCNVector3(pose.facing, 1, 1)
+        // zzzHolder 挂在 root 下：位置随朝向镜像（跟着头），字本身再翻回来保持正着读
+        for n in zzzNodes { n.scale = SCNVector3(pose.facing, 1, 1) }
         for (i, n) in zzzNodes.enumerated() {
             guard pose.zzz >= 0 else { n.isHidden = true; continue }
             let phase = (pose.zzz * 0.45 + CGFloat(i) / 3).truncatingRemainder(dividingBy: 1)
             n.isHidden = false
-            n.position = SCNVector3(20 + phase * 14, 82 + phase * 34, 24)
+            // 躺着时头在身前约 70 点、离地约 30 点；z 从头顶附近往上飘
+            n.position = SCNVector3(76 + phase * 14, 60 + phase * 34, 40)
             n.opacity = sin(phase * .pi)
         }
         updateSign(pose.sign)
