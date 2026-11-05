@@ -69,7 +69,7 @@ final class PipRig: PetRig {
         // 身体：一颗蛋（下宽上收），兜帽直接扣在上半身
         let body = sphereNode(radius: 25, material: furMaterial)
         body.scale = SCNVector3(1.04, 1.16, 0.92)
-        body.position = SCNVector3(0, 42, 0)
+        body.position = SCNVector3(0, 40, 0)
         bodyGroup.addChildNode(body)
 
         buildLeg(pivot: legPivotL, x: -8.5)
@@ -84,26 +84,28 @@ final class PipRig: PetRig {
         pivot.position = SCNVector3(x, 17, 0)
         bodyGroup.addChildNode(pivot)
 
-        let leg = capsuleNode(radius: 5.0, height: 10, material: furMaterial)
-        leg.position = SCNVector3(0, -4, 0)
+        // 一条腿直接从身体里长到地面，脚掌半埋在里面，不要出现断口
+        let leg = capsuleNode(radius: 5.4, height: 16, material: furMaterial)
+        leg.position = SCNVector3(0, -8, 0)
         pivot.addChildNode(leg)
 
-        let foot = sphereNode(radius: 5.4, material: furMaterial)
-        foot.scale = SCNVector3(1.0, 0.55, 1.25)
+        let foot = sphereNode(radius: 5.6, material: furMaterial)
+        foot.scale = SCNVector3(1.0, 0.52, 1.28)
         foot.position = SCNVector3(0, -14, 1.2)
         pivot.addChildNode(foot)
     }
 
     private func buildArm(pivot: SCNNode, x: CGFloat, sign: CGFloat) {
-        pivot.position = SCNVector3(x, 42, 0)
+        pivot.position = SCNVector3(x, 44, 0)
         bodyGroup.addChildNode(pivot)
 
-        let arm = capsuleNode(radius: 5.0, height: 9, material: furMaterial)
-        arm.position = SCNVector3(sign * 1.5, -5, 0)
+        // 手臂大半埋进绒毛里，只露出小圆手
+        let arm = capsuleNode(radius: 5.0, height: 12, material: furMaterial)
+        arm.position = SCNVector3(sign * 3, -5, 0)
         pivot.addChildNode(arm)
 
-        let hand = sphereNode(radius: 5.2, material: furMaterial)
-        hand.position = SCNVector3(sign * 2.5, -9.5, 0.5)
+        let hand = sphereNode(radius: 5.4, material: furMaterial)
+        hand.position = SCNVector3(sign * 5.5, -10, 0.5)
         pivot.addChildNode(hand)
     }
 
@@ -112,42 +114,42 @@ final class PipRig: PetRig {
         bodyGroup.addChildNode(headPivot)
         headPivot.addChildNode(headGroup)
 
-        // 兜帽（把上半身罩住）
-        let hood = sphereNode(radius: 21, material: furMaterial)
-        hood.scale = SCNVector3(1.03, 1.06, 0.98)
-        hood.position = SCNVector3(0, 8, 0)
+        // 兜帽（比身体窄，扣在上半身，形成头顶的圆弧）
+        let hood = sphereNode(radius: 20.5, material: furMaterial)
+        hood.scale = SCNVector3(1.02, 1.02, 0.98)
+        hood.position = SCNVector3(0, 8, -1)
         headGroup.addChildNode(hood)
 
-        // 兜帽顶上的两团绒毛
+        // 兜帽顶上的两团扁绒毛
         for sign in [CGFloat(-1), CGFloat(1)] {
             let peak = sphereNode(radius: 7.5, material: furMaterial)
-            peak.scale = SCNVector3(1.0, 1.15, 0.9)
-            peak.position = SCNVector3(sign * 11.5, 25, -3)
+            peak.scale = SCNVector3(1.3, 0.85, 1.0)
+            peak.position = SCNVector3(sign * 11, 24, -4)
             headGroup.addChildNode(peak)
         }
 
-        // 光滑的脸（比绒毛亮一点、没有法线噪声）
-        let faceNode = sphereNode(radius: 15, material: makeSmoothMaterial(PipPalette.face))
-        faceNode.scale = SCNVector3(1.0, 1.12, 0.55)
+        // 光滑的脸（微凸的椭圆，没有法线噪声）
+        let faceNode = sphereNode(radius: 13, material: makeSmoothMaterial(PipPalette.face))
+        faceNode.scale = SCNVector3(1.0, 1.15, 0.6)
         faceNode.position = SCNVector3(0, 7, 14)
         headGroup.addChildNode(faceNode)
 
-        // 帽沿：一圈绒毛包住脸的边缘
-        let rim = torusNode(ringRadius: 15.4, pipeRadius: 2.9, material: makeFurMaterial(PipPalette.furDeep))
+        // 帽沿：一圈绒毛压在脸的外缘上
+        let rim = torusNode(ringRadius: 14.2, pipeRadius: 3.5, material: makeFurMaterial(PipPalette.furDeep))
         rim.eulerAngles = SCNVector3(CGFloat.pi / 2, 0, 0)
-        rim.position = SCNVector3(0, 7, 16)
+        rim.position = SCNVector3(0, 7, 18)
         headGroup.addChildNode(rim)
 
         // 眼睛（小椭圆 + 高光）
         for (group, sign) in [(eyeGroupL, CGFloat(-1)), (eyeGroupR, CGFloat(1))] {
-            group.position = SCNVector3(sign * 6.2, 9, 20.8)
+            group.position = SCNVector3(sign * 6.0, 9, 20.5)
 
             let eye = sphereNode(radius: 2.7, material: makeSmoothMaterial(PipPalette.eye))
             eye.scale = SCNVector3(0.95, 1.25, 0.45)
             group.addChildNode(eye)
 
             let shine = sphereNode(radius: 0.85, material: makeSmoothMaterial(PipPalette.shine))
-            shine.position = SCNVector3(sign * 0.75, 1.0, 1.1)
+            shine.position = SCNVector3(sign * 0.75, 1.0, 1.15)
             group.addChildNode(shine)
 
             headGroup.addChildNode(group)
@@ -155,9 +157,9 @@ final class PipRig: PetRig {
 
         // 腮红
         for sign in [CGFloat(-1), CGFloat(1)] {
-            let cheek = sphereNode(radius: 4.4, material: makeSmoothMaterial(PipPalette.cheek.withAlphaComponent(0.62), doubleSided: false))
-            cheek.scale = SCNVector3(1.2, 0.78, 0.22)
-            cheek.position = SCNVector3(sign * 10.5, 3, 19.6)
+            let cheek = sphereNode(radius: 4.4, material: makeSmoothMaterial(PipPalette.cheek.withAlphaComponent(0.6), doubleSided: false))
+            cheek.scale = SCNVector3(1.2, 0.8, 0.22)
+            cheek.position = SCNVector3(sign * 9.6, 3, 19.2)
             headGroup.addChildNode(cheek)
         }
 
@@ -178,7 +180,7 @@ final class PipRig: PetRig {
         shape.materials = [makeSmoothMaterial(PipPalette.mouth)]
 
         let node = SCNNode(geometry: shape)
-        node.position = SCNVector3(0, 2.6, 21.1)
+        node.position = SCNVector3(0, 2.4, 21.5)
         return node
     }
 
