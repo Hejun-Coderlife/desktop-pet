@@ -22,6 +22,16 @@ if let index = cliArguments.firstIndex(of: "--posesheet") {
     exit(0)
 }
 
+// 冒烟测试：不显示窗口，跑 3 秒更新管线
+if cliArguments.contains("--smoke") {
+    let application = NSApplication.shared
+    application.setActivationPolicy(.accessory)
+    let stage = Stage()
+    print("Pip 冒烟测试（不显示窗口，跑 3 秒更新管线）")
+    print(stage.smokeTest(seconds: 3))
+    exit(0)
+}
+
 // 窗口配置自检（不显示窗口，只打印属性）
 if cliArguments.contains("--windowcheck") {
     let application = NSApplication.shared

@@ -121,6 +121,27 @@ final class Stage {
         }
     }
 
+    /// 冒烟测试：不显示窗口，把「世界更新 → 生成姿势 → 应用到模型 → 调整帧率」整条管线跑几秒
+    func smokeTest(seconds: TimeInterval) -> String {
+        let dt: CGFloat = 1.0 / 30.0
+        let steps = Int(seconds / TimeInterval(dt))
+        var sequence: [String] = []
+        for _ in 0..<steps {
+            updateMouse(dt: dt)
+            world.update(dt: dt)
+            applyVisuals()
+            updateFrameRate()
+            if sequence.last != world.state.displayName {
+                sequence.append(world.state.displayName)
+            }
+        }
+        let fps = timerInterval > 0 ? Int((1.0 / timerInterval).rounded()) : 0
+        return "状态序列 \(sequence.joined(separator: " → "))"
+            + "，最终位置 x=\(String(format: "%.1f", Double(world.position.x)))"
+            + " y=\(String(format: "%.1f", Double(world.position.y)))"
+            + "，目标帧率 \(fps) fps"
+    }
+
     // MARK: 配置自检（不开窗口，只打印关键属性）
 
     func debugSummary() -> String {
