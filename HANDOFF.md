@@ -262,3 +262,9 @@ swift build                 # 调试编译
   Typora（演示笔记 video/assets/notes.md「周末计划」）、QQ 音乐（正在放 Ella Langley《Choosin' Texas》MV，账号头像/昵称/VIP/续费条/自建歌单已用侧栏底色遮掉）。
   都在 compose() 里贴到桌面上、Pip 下面（不进 SceneKit 免得偏色）。Apple Music 没会员放不了，放弃。
 - 输出两份：pip-demo.mp4（原创配乐）、pip-demo-无声.mp4（用户自己录歌去配）。
+- 11-05 真机跳舞也有音符了（Stage.notes，和演示视频同一套动画）。注意：afplay 这类没 App 名字的进程放声音不算，测试要用 QuickTime 之类的 App 放。
+- 11-05 英文版视频：`PIP_DEMO_LANG=en .build/release/Pip --demo 帧目录`，用 video/assets/typora-en.png（英文笔记重截）、
+  qqmusic-en.png（tools/localize_qqmusic_en.py 把中文盖掉换英文）、举牌 "Drink water 💧"。
+  开头 0.5 秒一句 edge-tts AndrewNeural 配音 "I made a desktop pet."（video/assets/vo-en.mp3），配音时音乐压到 0.3。
+  输出 pip-demo-en.mp4（音乐+配音）、pip-demo-en-仅旁白.mp4（只有配音）。
+- 封面字：tools/make_cover_title.py（卡通风）、make_cover_title_poster.py（海报风中文）、make_cover_title_poster_en.py（海报风英文）→ video/cover-title*.png
