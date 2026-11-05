@@ -113,7 +113,15 @@ namespace Pip
         public void RemindNow()
         {
             activeSeconds = 0;
-            World.ShowSign(reminderTexts[reminderIndex++ % reminderTexts.Length]);
+            pendingSign = reminderTexts[reminderIndex++ % reminderTexts.Length];
+            TryShowSign();
+        }
+
+        string pendingSign;   // 被拎着/正在掉的时候到点了：先记着，落地再举牌
+        void TryShowSign()
+        {
+            if (pendingSign == null || World.State == PetState.Grabbed || World.State == PetState.Falling) return;
+            World.ShowSign(pendingSign); pendingSign = null;
         }
 
         /// 节日装扮开关变了：立刻换一只（Mac 版要重开）
@@ -134,6 +142,7 @@ namespace Pip
             FeedInputs(dt);
             UpdateMouse(dt);
             World.Update(dt);
+            TryShowSign();
             Present();
             SetInterval(World.IsMoving ? 1000 / 30 : 100);
             if (now - lastTopmost > 2)
@@ -148,11 +157,7 @@ namespace Pip
             double idle = WinEnv.IdleSeconds();
             World.IdleSeconds = idle;
             if (idle < 60) activeSeconds += dt;
-            if (Settings.Reminders && activeSeconds >= Settings.ReminderMinutes * 60)
-            {
-                activeSeconds = 0;
-                World.ShowSign(reminderTexts[reminderIndex++ % reminderTexts.Length]);
-            }
+            if (Settings.Reminders && activeSeconds >= Settings.ReminderMinutes * 60) RemindNow();
         }
 
         void RefreshEnvironment()
