@@ -38,6 +38,14 @@ final class PipRig: PetRig {
 
     private let baseScale: CGFloat = 1.0
 
+    /// 脸的椭圆（宽 38、高 33），不是正圆
+    private let faceWidth: CGFloat = 38
+    private let faceHeight: CGFloat = 33
+    /// 脸那张软片的深度：比肚子最鼓的地方再靠前一点，否则下半张脸会被绒毛吃掉
+    private let facePanelZ: CGFloat = 12.2
+    /// 五官（眼、腮红、嘴）比脸的软片再靠前一点
+    private let featureZ: CGFloat = 13.2
+
     private let squashNode = SCNNode()
     private let bodyGroup = SCNNode()
     private let headPivot = SCNNode()
@@ -123,17 +131,13 @@ final class PipRig: PetRig {
         bodyGroup.addChildNode(headPivot)
         headPivot.addChildNode(headGroup)
 
-        // 光滑的脸：微微鼓出来，边缘直接陷进绒毛里
-        let faceNode = sphereNode(radius: 16.5, material: makeSmoothMaterial(PipPalette.face))
-        faceNode.scale = SCNVector3(1.03, 1.0, 0.62)
-        headGroup.addChildNode(faceNode)
-
-        // 脸和绒毛交界处的一圈软阴影，把生硬的分界线化开
-        headGroup.addChildNode(faceShadeNode())
+        // 光滑的脸：一张画好羽化边缘的椭圆软片。
+        // 用球体不行——肚子在脸下方往外鼓，球的下缘会被绒毛切掉，而且球面边缘的羽化几乎没有宽度。
+        headGroup.addChildNode(facePanelNode())
 
         // 眼睛（小椭圆 + 冷光）
         for (group, sign) in [(eyeGroupL, CGFloat(-1)), (eyeGroupR, CGFloat(1))] {
-            group.position = SCNVector3(sign * 8.7, 2.0, 8.4)   // 与 eyeBaseL/R 保持一致
+            group.position = SCNVector3(sign * 8.7, 2.0, featureZ)
 
             let eye = sphereNode(radius: 2.9, material: makeSmoothMaterial(PipPalette.eye))
             eye.scale = SCNVector3(0.95, 1.1, 0.5)
@@ -160,10 +164,6 @@ final class PipRig: PetRig {
         let node = SCNNode()
         let material = makeSmoothMaterial(PipPalette.mouth)
 
-        let xRadius: CGFloat = 16.5 * 1.03
-        let yRadius: CGFloat = 16.5
-        let zRadius: CGFloat = 16.5 * 0.62
-
         let halfWidth: CGFloat = 3.9
         let topY: CGFloat = 0.8
         let dipY: CGFloat = -1.2
@@ -176,11 +176,8 @@ final class PipRig: PetRig {
             let x = (2 * oneMinus * t * 0 + oneMinus * oneMinus * -halfWidth + t * t * halfWidth)
             let y = -4.2 + oneMinus * oneMinus * topY + 2 * oneMinus * t * dipY + t * t * topY
 
-            let normalized = 1 - (x * x) / (xRadius * xRadius) - (y * y) / (yRadius * yRadius)
-            let z = zRadius * sqrt(max(0.05, normalized)) + 0.55
-
             let bead = sphereNode(radius: 0.42, material: material)
-            bead.position = SCNVector3(x, y, z)
+            bead.position = SCNVector3(x, y, featureZ + 0.2)
             node.addChildNode(bead)
         }
         return node
@@ -218,54 +215,88 @@ final class PipRig: PetRig {
         eyeGroupL.scale = eyeScale
         eyeGroupR.scale = eyeScale
 
-        // 眼珠朝鼠标方向滑过去（这个角色没有眼白，靠珠子挪位表达视线）
+        // 眼珠朝鼠标方向滑过去（这个角色没有眼白，靠珠子挪位表达视线）。
+        // 两只眼的 z 相同，滑多远都不会被脸切掉，大小一只是对得上的。
         let lookX = gaze.x * 2.8
         let lookY = gaze.y * 1.9
-        eyeGroupL.position = SCNVector3(eyeBaseL.x + lookX, eyeBaseL.y + lookY, 7.5)
-        eyeGroupR.position = SCNVector3(eyeBaseR.x + lookX, eyeBaseR.y + lookY, 7.5)
+        eyeGroupL.position = SCNVector3(eyeBaseL.x + lookX, eyeBaseL.y + lookY, featureZ)
+        eyeGroupR.position = SCNVector3(eyeBaseR.x + lookX, eyeBaseR.y + lookY, featureZ)
 
         SCNTransaction.commit()
     }
 
-    // MARK: 脸的接缝阴影
+    // MARK: 脸（椭圆软片）
 
-    private static let faceShadeImage: CGImage? = {
-        let size = 256
-        guard let context = CGContext(data: nil,
-                                      width: size,
-                                      height: size,
-                                      bitsPerComponent: 8,
-                                      bytesPerRow: 0,
-                                      space: CGColorSpaceCreateDeviceRGB(),
-                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
-        let shadow = NSColor.hex(0x6B5B49)
-        let colors = [shadow.withAlphaComponent(0).cgColor,
-                      shadow.withAlphaComponent(0).cgColor,
-                      shadow.withAlphaComponent(0.26).cgColor,
-                      shadow.withAlphaComponent(0).cgColor] as CFArray
-        guard let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
-                                        colors: colors,
-                                        locations: [0, 0.84, 0.93, 1.0]) else { return nil }
-        let center = CGPoint(x: CGFloat(size) / 2, y: CGFloat(size) / 2)
-        context.drawRadialGradient(gradient,
-                                   startCenter: center, startRadius: 0,
-                                   endCenter: center, endRadius: CGFloat(size) / 2,
-                                   options: [])
-        return context.makeImage()
+    /// 512×512 的椭圆纹理：奶油色竖渐变 + 边缘往暖褐色收（不是压灰），最外圈 alpha 化开
+    private static let faceImage: CGImage? = {
+        let size = 512
+        var pixels = [UInt8](repeating: 0, count: size * size * 4)
+
+        let top = (r: 0.996, g: 0.980, b: 0.957)      // 上：近白奶油
+        let bottom = (r: 0.960, g: 0.925, b: 0.874)   // 下：略暖沉
+        let rimTone = (r: 0.878, g: 0.796, b: 0.686)  // 边缘：暖褐，像绒毛投下来的暗处
+        let featherStart: Double = 0.88               // 只有最外一圈化开
+        let featherEnd: Double = 1.0
+
+        for y in 0..<size {
+            for x in 0..<size {
+                let nx = (Double(x) + 0.5) / Double(size) * 2 - 1
+                let ny = (Double(y) + 0.5) / Double(size) * 2 - 1
+                let rho = sqrt(nx * nx + ny * ny)
+
+                var alpha = 1.0
+                if rho > featherStart {
+                    let t = min(1, (rho - featherStart) / (featherEnd - featherStart))
+                    alpha = 1 - t * t * (3 - 2 * t)   // smoothstep，边缘慢慢化开
+                }
+
+                let t = (ny + 1) / 2
+                var r = top.r + (bottom.r - top.r) * t
+                var g = top.g + (bottom.g - top.g) * t
+                var b = top.b + (bottom.b - top.b) * t
+
+                // 越靠边缘越往暖褐收，读起来是脸的弧度转进去，而不是一张发光的白纸
+                let v = min(1, max(0, (rho - 0.42) / 0.58))
+                let shade = v * v * (3 - 2 * v) * 0.55
+                r += (rimTone.r - r) * shade
+                g += (rimTone.g - g) * shade
+                b += (rimTone.b - b) * shade
+
+                let index = (y * size + x) * 4
+                pixels[index]     = UInt8(max(0, min(255, r * alpha * 255)))
+                pixels[index + 1] = UInt8(max(0, min(255, g * alpha * 255)))
+                pixels[index + 2] = UInt8(max(0, min(255, b * alpha * 255)))
+                pixels[index + 3] = UInt8(max(0, min(255, alpha * 255)))
+            }
+        }
+
+        let data = Data(pixels)
+        guard let provider = CGDataProvider(data: data as CFData) else { return nil }
+        return CGImage(width: size,
+                       height: size,
+                       bitsPerComponent: 8,
+                       bitsPerPixel: 32,
+                       bytesPerRow: size * 4,
+                       space: CGColorSpaceCreateDeviceRGB(),
+                       bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
+                       provider: provider,
+                       decode: nil,
+                       shouldInterpolate: true,
+                       intent: .defaultIntent)
     }()
 
-    private func faceShadeNode() -> SCNNode {
-        let plane = SCNPlane(width: 37, height: 36)
+    private func facePanelNode() -> SCNNode {
+        let plane = SCNPlane(width: faceWidth, height: faceHeight)
         let material = SCNMaterial()
         material.lightingModel = .constant
-        material.diffuse.contents = Self.faceShadeImage
+        material.diffuse.contents = Self.faceImage
         material.blendMode = .alpha
         material.isDoubleSided = true
         material.writesToDepthBuffer = false
         plane.materials = [material]
 
         let node = SCNNode(geometry: plane)
-        node.position = SCNVector3(0, 0, 22.0)
+        node.position = SCNVector3(0, 0, facePanelZ)
         return node
     }
 
@@ -309,7 +340,7 @@ final class PipRig: PetRig {
         plane.materials = [material]
 
         let node = SCNNode(geometry: plane)
-        node.position = SCNVector3(sign * 9.4, -4.9, 8.6)
+        node.position = SCNVector3(sign * 9.8, -5.0, featureZ + 0.1)
         return node
     }
 
