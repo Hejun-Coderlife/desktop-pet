@@ -66,6 +66,12 @@ final class PipRig: PetRig {
     private let armPivotR = SCNNode()
     private let legPivotL = SCNNode()
     private let legPivotR = SCNNode()
+    private var blushNodes: [SCNNode] = []
+    /// 不跟着朝向镜像的挂件（字要正着读）：z 和牌子
+    private let unmirrored = SCNNode()
+    private var zzzNodes: [SCNNode] = []
+    private let signNode = SCNNode()
+    private var signShown: String?
 
     /// 身体轮廓（从下到上）：最宽 60 点，头顶是圆顶
     static let bodyProfile: [(y: CGFloat, r: CGFloat)] = [
@@ -106,6 +112,79 @@ final class PipRig: PetRig {
         buildArm(pivot: armPivotR, x: 26, sign: 1)
 
         buildHead()
+        buildExtras()
+        Outfit.current().attach(to: headGroup, body: bodyGroup)
+    }
+
+    // MARK: z 和牌子
+
+    private func buildExtras() {
+        bodyGroup.addChildNode(unmirrored)
+        for i in 0..<3 {
+            let size: CGFloat = 9 + CGFloat(i) * 3
+            let plane = SCNPlane(width: size, height: size)
+            let m = SCNMaterial()
+            m.lightingModel = .constant
+            m.diffuse.contents = Self.textImage("z", fontSize: 64, color: NSColor.hex(0x6E7FA8), size: CGSize(width: 64, height: 64))
+            m.isDoubleSided = true
+            m.writesToDepthBuffer = false
+            plane.materials = [m]
+            let n = SCNNode(geometry: plane)
+            n.isHidden = true
+            unmirrored.addChildNode(n)
+            zzzNodes.append(n)
+        }
+        signNode.isHidden = true
+        unmirrored.addChildNode(signNode)
+    }
+
+    /// 把一段文字画成透明底的贴图
+    static func textImage(_ text: String, fontSize: CGFloat, color: NSColor, size: CGSize, background: NSColor? = nil) -> NSImage {
+        let image = NSImage(size: size)
+        image.lockFocus()
+        if let background {
+            let path = NSBezierPath(roundedRect: CGRect(origin: .zero, size: size).insetBy(dx: 3, dy: 3), xRadius: 18, yRadius: 18)
+            background.setFill()
+            path.fill()
+            NSColor.hex(0xB89C7E).setStroke()
+            path.lineWidth = 4
+            path.stroke()
+        }
+        let style = NSMutableParagraphStyle()
+        style.alignment = .center
+        let font = NSFont.systemFont(ofSize: fontSize, weight: .heavy)
+        let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: color, .paragraphStyle: style]
+        let str = NSAttributedString(string: text, attributes: attrs)
+        let h = str.boundingRect(with: size, options: [.usesLineFragmentOrigin]).height
+        str.draw(in: CGRect(x: 0, y: (size.height - h) / 2, width: size.width, height: h))
+        image.unlockFocus()
+        return image
+    }
+
+    private func updateSign(_ text: String?) {
+        guard text != signShown else { return }
+        signShown = text
+        signNode.childNodes.forEach { $0.removeFromParentNode() }
+        guard let text else { signNode.isHidden = true; return }
+        let plane = SCNPlane(width: 64, height: 30)
+        let m = SCNMaterial()
+        m.lightingModel = .constant
+        m.diffuse.contents = Self.textImage(text, fontSize: 46, color: NSColor.hex(0x5A4636),
+                                            size: CGSize(width: 384, height: 180), background: NSColor.hex(0xFFF7EA))
+        m.isDoubleSided = true
+        plane.materials = [m]
+        let board = SCNNode(geometry: plane)
+        // 两根小木棍连到爪子
+        let stickMaterial = makeSmoothMaterial(NSColor.hex(0xB89C7E))
+        for x in [CGFloat(-16), 16] {
+            let stick = SCNNode(geometry: SCNCylinder(radius: 0.9, height: 14))
+            stick.geometry?.materials = [stickMaterial]
+            stick.position = SCNVector3(x, -20, -0.5)
+            board.addChildNode(stick)
+        }
+        signNode.addChildNode(board)
+        signNode.position = SCNVector3(0, 116, 26)
+        signNode.isHidden = false
     }
 
     private func buildLeg(pivot: SCNNode, x: CGFloat) {
@@ -164,7 +243,9 @@ final class PipRig: PetRig {
 
         // 腮红：一张带径向渐变的软片，边缘化开（用球体做会是硬边椭圆）
         for sign in [CGFloat(-1), CGFloat(1)] {
-            headGroup.addChildNode(blushNode(sign: sign))
+            let b = blushNode(sign: sign)
+            blushNodes.append(b)
+            headGroup.addChildNode(b)
         }
 
         // 细弧嘴
@@ -224,9 +305,24 @@ final class PipRig: PetRig {
         legPivotL.position.y = legBaseY + pose.liftLeft
         legPivotR.position.y = legBaseY + pose.liftRight
 
-        let eyeScale = SCNVector3(1, max(0.08, 1 - pose.blink * 0.95), 1)
+        // 笑眼：压成一条细缝、略往上提（远看就是弯弯的 ^ ^）
+        let open = max(0.08, 1 - pose.blink * 0.95) * (1 - pose.happyEyes * 0.78)
+        let es = pose.eyeScale
+        let eyeScale = SCNVector3(es * (1 + pose.happyEyes * 0.25), es * open, es)
         eyeGroupL.scale = eyeScale
         eyeGroupR.scale = eyeScale
+        for n in blushNodes { n.opacity = min(1, 0.55 * pose.blush) }
+
+        // 不镜像的挂件：父节点被 facing 翻了，这里再翻回来
+        unmirrored.scale = SCNVector3(pose.facing, 1, 1)
+        for (i, n) in zzzNodes.enumerated() {
+            guard pose.zzz >= 0 else { n.isHidden = true; continue }
+            let phase = (pose.zzz * 0.45 + CGFloat(i) / 3).truncatingRemainder(dividingBy: 1)
+            n.isHidden = false
+            n.position = SCNVector3(20 + phase * 14, 82 + phase * 34, 24)
+            n.opacity = sin(phase * .pi)
+        }
+        updateSign(pose.sign)
 
         // 眼珠朝鼠标方向滑过去（这个角色没有眼白，靠珠子挪位表达视线）。
         // 两只眼的 z 相同，滑多远都不会被脸切掉，大小一只是对得上的。

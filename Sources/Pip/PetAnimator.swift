@@ -57,6 +57,15 @@ enum PetAnimator {
             pose.squashY = 1.12
             pose.blink = 0.15
 
+        case .falling where world.startled:
+            // 被点了一下：吓一跳，眼睛瞪大，两爪往上一扬
+            pose.armLeft = 2.0
+            pose.armRight = 2.0
+            pose.eyeScale = 1.35
+            pose.squashY = 1.06
+            pose.legSideLeft = 0.25
+            pose.legSideRight = 0.25
+
         case .falling:
             let speed = hypot(world.velocity.dx, world.velocity.dy)
             pose.squashY = 1 + min(0.12, speed / 12000)
@@ -87,6 +96,80 @@ enum PetAnimator {
             pose.armRight = 0.6 * (1 - u)
             pose.legLeft = 0.2 * (1 - u)
             pose.legRight = -0.2 * (1 - u)
+
+        case .sleep:
+            // 坐下（压矮）、头一点一点地打盹、闭眼、冒 z
+            let nod = sin(t * 1.3)
+            pose.squashY = 0.86 + sin(t * 0.9) * 0.015
+            pose.headPitch = 0.12 + max(0, nod) * 0.16
+            pose.headTilt = 0.1
+            pose.bodyLean = -0.04
+            pose.armLeft = 0.25
+            pose.armRight = 0.25
+            pose.legLeft = -1.1
+            pose.legRight = -1.1
+            pose.blink = 1
+            pose.zzz = t
+
+        case .wake:
+            // 伸懒腰：双爪慢慢举高、身体拉长，再落回来
+            let u = min(1, world.stateTime / PetWorld.wakeDuration)
+            let reach = sin(u * .pi)
+            pose.armLeft = 0.3 + reach * 2.4
+            pose.armRight = 0.3 + reach * 2.4
+            pose.squashY = 0.9 + reach * 0.2
+            pose.headPitch = -reach * 0.15
+            pose.blink = max(0, 1 - u * 1.6) * 0.8
+            pose.happyEyes = reach * 0.6
+
+        case .petted:
+            // 眯眼享受，脸红，身体跟着轻轻左右蹭
+            let sway = sin(t * 3.2)
+            pose.happyEyes = 1
+            pose.blush = 1.9
+            pose.bodyLean = sway * 0.1
+            pose.headTilt = sway * 0.12 + 0.05
+            pose.squashY = 0.97 + abs(sin(t * 3.2)) * 0.03
+            pose.armLeft = 0.25 + sway * 0.1
+            pose.armRight = 0.25 - sway * 0.1
+
+        case .dance:
+            // 约 112 拍/分：每拍一次上下颠，左右交替扭，两爪轮流举
+            let beat = t * (112.0 / 60.0) * 2 * .pi
+            let b = sin(beat)
+            let half = sin(beat / 2)
+            pose.bob = abs(b) * 3.2
+            pose.squashY = 1 - abs(b) * 0.05
+            pose.bodyLean = half * 0.16
+            pose.headTilt = -half * 0.14
+            pose.armLeft = 0.4 + max(0, half) * 1.9
+            pose.armRight = 0.4 + max(0, -half) * 1.9
+            pose.liftLeft = max(0, half) * 2.4
+            pose.liftRight = max(0, -half) * 2.4
+            pose.happyEyes = 0.8
+            pose.blush = 1.3
+
+        case .sign:
+            // 双爪举着牌子，轻轻晃
+            let sway = sin(t * 2.4)
+            pose.armLeft = 2.55
+            pose.armRight = 2.55
+            pose.bodyLean = sway * 0.05
+            pose.headTilt = sway * 0.06
+            pose.sign = world.signText
+            pose.blink = blink(t)
+
+        case .perch:
+            // 坐在窗口顶边上，两条小腿悬在边外前后晃
+            let swing = sin(t * 3.0)
+            pose.squashY = 0.9
+            pose.legLeft = -1.25 + swing * 0.35
+            pose.legRight = -1.25 - swing * 0.35
+            pose.armLeft = 0.2
+            pose.armRight = 0.2
+            pose.headTilt = sin(t * 0.8) * 0.06
+            pose.headYaw = sin(t * 0.5) * 0.2
+            pose.blink = blink(t)
         }
 
         return pose

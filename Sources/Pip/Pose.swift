@@ -39,6 +39,16 @@ struct Pose {
 
     /// 0 = 睁眼，1 = 闭眼
     var blink: CGFloat = 0
+    /// 眼睛大小（吓一跳时睁大）
+    var eyeScale: CGFloat = 1
+    /// 0…1：眯成弯弯的笑眼（被摸、跳舞）
+    var happyEyes: CGFloat = 0
+    /// 腮红浓度倍数（1 = 平时）
+    var blush: CGFloat = 1
+    /// 头顶冒「z」的计时（<0 不显示）
+    var zzz: CGFloat = -1
+    /// 举着的牌子（nil 不显示）
+    var sign: String?
 }
 
 /// 角色渲染抽象：第一期用 SceneKit 基础形体实现，第二期可换模型实现

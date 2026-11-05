@@ -77,7 +77,16 @@ enum Snapshot {
         landing.preview(state: .landing, time: 4.0, feet: CGPoint(x: xs[4], y: 0),
                         stateTime: PetWorld.landingDuration * 0.28)
 
-        let worlds = [idle, walk, grabbed, falling, landing]
+        var worlds = [idle, walk, grabbed, falling, landing]
+        // PIP_SHEET=features：换成新功能的五个姿势（睡觉 / 被摸 / 跳舞 / 举牌 / 坐窗口）
+        if ProcessInfo.processInfo.environment["PIP_SHEET"] == "features" {
+            let specs: [(PetState, String?)] = [(.sleep, nil), (.petted, nil), (.dance, nil), (.sign, "喝口水吧 💧"), (.perch, nil)]
+            worlds = specs.enumerated().map { i, spec in
+                let w = PetWorld(size: worldSize, groundY: 0, seed: UInt64(10 + i))
+                w.preview(state: spec.0, time: 2.3 + CGFloat(i) * 0.4, feet: CGPoint(x: xs[i], y: 0), sign: spec.1)
+                return w
+            }
+        }
         let rigs = [built.rig] + (1..<worlds.count).map { _ in PipRig() }
 
         for (index, pair) in zip(worlds, rigs).enumerated() {

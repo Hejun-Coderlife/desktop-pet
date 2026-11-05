@@ -1,5 +1,17 @@
 import AppKit
 import SceneKit
+import CoreAudio
+
+// MARK: - 开关（菜单栏里改，记在 UserDefaults）
+
+enum Settings {
+    private static func flag(_ key: String, _ def: Bool) -> Bool { UserDefaults.standard.object(forKey: key) as? Bool ?? def }
+    static var climbWindows: Bool { get { flag("climbWindows", true) } set { UserDefaults.standard.set(newValue, forKey: "climbWindows") } }
+    static var dance: Bool { get { flag("dance", true) } set { UserDefaults.standard.set(newValue, forKey: "dance") } }
+    static var reminders: Bool { get { flag("reminders", true) } set { UserDefaults.standard.set(newValue, forKey: "reminders") } }
+    /// 提醒间隔（分钟，按「真的在用电脑」的时间累计）
+    static var reminderMinutes: Double { get { (UserDefaults.standard.object(forKey: "reminderMinutes") as? Double) ?? 45 } set { UserDefaults.standard.set(newValue, forKey: "reminderMinutes") } }
+}
 
 // MARK: - 不抢焦点、不进程序坞的透明舞台窗口
 
@@ -55,6 +67,16 @@ final class Stage {
     private var gaze = CGPoint.zero
     /// 当前系统光标，避免每帧重复 set()
     private var cursorStyle = CursorStyle.arrow
+
+    // 互动
+    private var lastMouse = CGPoint.zero
+    private var mouseStillSince: CFTimeInterval = CACurrentMediaTime()
+    private var downTime: CFTimeInterval = 0
+    private var downPoint = CGPoint.zero
+    // 提醒
+    private var activeSeconds: Double = 0
+    private var reminderIndex = 0
+    private static let reminderTexts = ["喝口水吧 💧", "站起来走走 🚶", "看看远处 👀", "伸个懒腰 🙆"]
 
     // MARK: 初始化
 
@@ -169,6 +191,12 @@ final class Stage {
         let r = petRect()
         lines.append("点击区域        = \(rectString(r))")
         lines.append("当前状态        = \(world.state.displayName)，位置 \(rectString(CGRect(x: world.position.x, y: world.position.y, width: 0, height: 0)))")
+        let plat = FrontmostAppWindow.topEdge(on: currentScreen, groundY: world.groundY)
+        lines.append("可站的窗口顶边  = \(plat.map { "id=\($0.id) x=\(Int($0.x0))…\(Int($0.x1)) y=\(Int($0.y))" } ?? "无")")
+        lines.append("有声音在放      = \(SoundOutput.isPlaying())")
+        let anyInput = CGEventType(rawValue: ~0)!
+        lines.append("系统空闲秒数    = \(String(format: "%.1f", CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: anyInput)))")
+        lines.append("节日装扮        = \(Outfit.current().rawValue)")
         return lines.joined(separator: "\n")
     }
 
@@ -246,10 +274,31 @@ final class Stage {
         }
 
         sceneView.isPlaying = true
+        feedInputs(dt: Double(dt))
         updateMouse(dt: dt)
         world.update(dt: dt)
         applyVisuals()
         updateFrameRate()
+    }
+
+    /// 系统空闲时间（不需要任何权限）、提醒计时
+    private func feedInputs(dt: Double) {
+        let anyInput = CGEventType(rawValue: ~0)!
+        let idle = CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: anyInput)
+        world.idleSeconds = idle
+        if idle < 60 { activeSeconds += dt }
+        if Settings.reminders && activeSeconds >= Settings.reminderMinutes * 60 {
+            activeSeconds = 0
+            world.showSign(Self.reminderTexts[reminderIndex % Self.reminderTexts.count])
+            reminderIndex += 1
+        }
+    }
+
+    /// 菜单栏「现在提醒一下」用来试效果
+    func remindNow() {
+        activeSeconds = 0
+        world.showSign(Self.reminderTexts[reminderIndex % Self.reminderTexts.count])
+        reminderIndex += 1
     }
 
     private func updateFrameRate() {
@@ -276,6 +325,10 @@ final class Stage {
         }
 
         occluded = panel.isVisible && !panel.occlusionState.contains(.visible)
+
+        world.climbEnabled = Settings.climbWindows
+        world.setPlatform(Settings.climbWindows ? FrontmostAppWindow.topEdge(on: screen, groundY: groundY) : nil)
+        world.soundPlaying = Settings.dance && SoundOutput.isPlaying()
 
         let fs = FrontmostAppWindow.isFullscreen(on: screen)
         if fs != fullscreenHidden {
@@ -333,6 +386,23 @@ final class Stage {
         if panel.ignoresMouseEvents != shouldIgnore {
             panel.ignoresMouseEvents = shouldIgnore
         }
+
+        // 摸头：没按键、在它身上来回划。划得越多越舒服（太快的一扫而过不算）
+        let moved = hypot(point.x - lastMouse.x, point.y - lastMouse.y)
+        let now = CACurrentMediaTime()
+        if moved > 1.5 { mouseStillSince = now }
+        if inside && NSEvent.pressedMouseButtons & 1 == 0 && moved > 0.5 && moved < 60 {
+            world.pet(amount: moved / 260)
+        }
+        lastMouse = point
+
+        // 追鼠标：光标停在脚下附近不动 1.5 秒，它就慢慢走过去抬头看
+        let nearFloor = point.y - world.supportY < 160 && point.y > world.groundY - 40
+        if !inside && nearFloor && now - mouseStillSince > 1.5 {
+            world.attentionX = min(max(point.x, world.halfWidth), world.size.width - world.halfWidth)
+        } else if moved > 1.5 || !nearFloor {
+            world.attentionX = nil
+        }
         updateLook(at: point)
     }
 
@@ -378,6 +448,8 @@ final class Stage {
     func petMouseDown(at point: CGPoint) {
         guard !paused, !userHidden, !fullscreenHidden, !occluded else { return }
         guard petRect().insetBy(dx: -6, dy: -6).contains(point) else { return }
+        downTime = CACurrentMediaTime()
+        downPoint = point
         world.beginGrab(at: point)
         panel.ignoresMouseEvents = false
     }
@@ -389,7 +461,12 @@ final class Stage {
 
     func petMouseUp(at point: CGPoint) {
         guard world.state == .grabbed else { return }
-        world.endGrab()
+        // 按下就松开、几乎没拖动 = 点了一下，不是拎
+        if CACurrentMediaTime() - downTime < 0.25 && hypot(point.x - downPoint.x, point.y - downPoint.y) < 5 {
+            world.click()
+        } else {
+            world.endGrab()
+        }
         panel.ignoresMouseEvents = !petRect().contains(point)
     }
 
@@ -432,6 +509,77 @@ enum FrontmostAppWindow {
             if width >= screenFrame.width - 4 && height >= screenFrame.height - 4 {
                 return true
             }
+        }
+        return false
+    }
+}
+
+extension FrontmostAppWindow {
+
+    /// 最前面 App 的最前面那个普通窗口的顶边，换算成舞台坐标（左下原点，y 向上）。
+    /// 只读窗口位置，不读标题和内容，不需要屏幕录制权限。
+    static func topEdge(on screen: NSScreen, groundY: CGFloat) -> Platform? {
+        guard let frontApp = NSWorkspace.shared.frontmostApplication,
+              frontApp.processIdentifier != ProcessInfo.processInfo.processIdentifier else { return nil }
+        let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
+        guard let list = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else { return nil }
+        // CG 坐标原点在主屏左上角
+        let mainHeight = NSScreen.screens.first?.frame.height ?? screen.frame.height
+        for info in list {
+            guard (info[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value == frontApp.processIdentifier,
+                  (info[kCGWindowLayer as String] as? NSNumber)?.intValue == 0,
+                  let b = info[kCGWindowBounds as String] as? [String: Any] else { continue }
+            let x = (b["X"] as? NSNumber)?.doubleValue ?? 0
+            let y = (b["Y"] as? NSNumber)?.doubleValue ?? 0
+            let w = (b["Width"] as? NSNumber)?.doubleValue ?? 0
+            let h = (b["Height"] as? NSNumber)?.doubleValue ?? 0
+            guard w >= 240, h >= 120 else { continue }
+            if w >= screen.frame.width - 4 && h >= screen.frame.height - 4 { return nil }   // 全屏
+            let top = CGFloat(mainHeight - y) - screen.frame.minY
+            let x0 = CGFloat(x) - screen.frame.minX
+            // 太低（贴着程序坞）或太高（顶着菜单栏）都不当平台
+            guard top > groundY + 70, top < screen.frame.height - 30 - 92 else { return nil }
+            let id = (info[kCGWindowNumber as String] as? NSNumber)?.intValue ?? 0
+            return Platform(id: id, x0: max(0, x0), x1: min(screen.frame.width, x0 + CGFloat(w)), y: top)
+        }
+        return nil
+    }
+}
+
+/// 有没有声音在放：逐个进程看谁在往扬声器输出（macOS 14.4+，不需要权限，也听不到内容）。
+/// 有些 App 开着就一直占着音频输出、其实没声音（实测 Blender 就是），放进忽略名单，
+/// 否则 Pip 会一直跳舞。
+enum SoundOutput {
+    static let ignoredApps: Set<String> = [
+        "Blender", "DaVinci Resolve", "Final Cut Pro", "iMovie", "Motion", "Compressor",
+        "zoom.us", "Microsoft Teams", "腾讯会议", "TencentMeeting", "FaceTime", "Pip"
+    ]
+
+    static func isPlaying() -> Bool {
+        var addr = AudioObjectPropertyAddress(mSelector: kAudioHardwarePropertyProcessObjectList,
+                                              mScope: kAudioObjectPropertyScopeGlobal,
+                                              mElement: kAudioObjectPropertyElementMain)
+        var size: UInt32 = 0
+        guard AudioObjectGetPropertyDataSize(AudioObjectID(kAudioObjectSystemObject), &addr, 0, nil, &size) == noErr,
+              size > 0 else { return false }
+        var ids = [AudioObjectID](repeating: 0, count: Int(size) / MemoryLayout<AudioObjectID>.size)
+        guard AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &addr, 0, nil, &size, &ids) == noErr else { return false }
+        let me = ProcessInfo.processInfo.processIdentifier
+        for id in ids {
+            var a = AudioObjectPropertyAddress(mSelector: kAudioProcessPropertyIsRunningOutput,
+                                               mScope: kAudioObjectPropertyScopeGlobal,
+                                               mElement: kAudioObjectPropertyElementMain)
+            var running: UInt32 = 0
+            var s = UInt32(MemoryLayout<UInt32>.size)
+            guard AudioObjectGetPropertyData(id, &a, 0, nil, &s, &running) == noErr, running != 0 else { continue }
+            a.mSelector = kAudioProcessPropertyPID
+            var pid: pid_t = 0
+            s = UInt32(MemoryLayout<pid_t>.size)
+            guard AudioObjectGetPropertyData(id, &a, 0, nil, &s, &pid) == noErr, pid != me else { continue }
+            // 后台系统进程（没有 App 名字的）不算
+            guard let app = NSRunningApplication(processIdentifier: pid), let name = app.localizedName else { continue }
+            if ignoredApps.contains(name) { continue }
+            return true
         }
         return false
     }
