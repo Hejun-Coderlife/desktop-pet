@@ -255,3 +255,4 @@ swift build                 # 调试编译
   真实桌面不进 SceneKit（会变暗变艳），Pip 渲染到透明层，在 compose() 里按镜头裁切盖到原图上。地面 = 56（visibleFrame.minY）。
 - 背景音乐：`tools/make_music.py`（原创合成，八音盒+低音+轻鼓，112 拍/分，用 /tmp/ftvenv 的 numpy）→ `video/assets/music.wav`；
   合成命令加 `-i video/assets/music.wav -c:a aac -b:a 192k -shortest`。
+- 11-05 视频里去掉所有文字（片尾也不放），只保留举牌上的「喝口水吧 💧」。

@@ -209,7 +209,7 @@ final class PipRig: PetRig {
         let plane = SCNPlane(width: 64, height: 30)
         let m = SCNMaterial()
         m.lightingModel = .constant
-        m.diffuse.contents = Self.textImage(text, fontSize: 46, color: NSColor.hex(0x5A4636),
+        m.diffuse.contents = Self.textImage(text, fontSize: text.count <= 2 ? 120 : 46, color: NSColor.hex(0x5A4636),
                                             size: CGSize(width: 384, height: 180), background: NSColor.hex(0xFFF7EA))
         m.isDoubleSided = true
         plane.materials = [m]

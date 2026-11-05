@@ -406,18 +406,7 @@ enum Demo {
             str.draw(at: CGPoint(x: pill.minX + 34, y: pill.minY + 13))
         }
 
-        if t >= 38.4 {
-            let alpha = CGFloat(min(1, (t - 38.4) / 0.5))
-            let title = NSAttributedString(string: "Pip", attributes: [
-                .font: NSFont(name: "PingFangSC-Semibold", size: 150) ?? .boldSystemFont(ofSize: 150),
-                .foregroundColor: NSColor.hex(0x5A4A42).withAlphaComponent(alpha)])
-            let sub = NSAttributedString(string: "你的桌面毛绒小伙伴", attributes: [
-                .font: NSFont(name: "PingFangSC-Regular", size: 48) ?? .systemFont(ofSize: 48),
-                .foregroundColor: NSColor.hex(0x7A6A62).withAlphaComponent(alpha)])
-            let ts = title.size(), ss = sub.size()
-            title.draw(at: CGPoint(x: (CGFloat(outW) - ts.width) / 2, y: 690))
-            sub.draw(at: CGPoint(x: (CGFloat(outW) - ss.width) / 2, y: 630))
-        }
+        // 视频里不放任何文字（片尾也不放）
         NSGraphicsContext.restoreGraphicsState()
         return ctx.makeImage()
     }
