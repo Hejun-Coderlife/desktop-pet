@@ -42,12 +42,14 @@ final class PipRig: PetRig {
     private let baseScale: CGFloat = 1.0
 
     /// 脸的椭圆（宽 38、高 33），不是正圆
-    private let faceWidth: CGFloat = 38
-    private let faceHeight: CGFloat = 33
+    /// 脸：偏大的圆角方形（超椭圆），占头部大半——参考原版，下巴干净、不被毛盖住
+    private let faceWidth: CGFloat = 43
+    private let faceHeight: CGFloat = 40
     /// 脸那张软片的深度：比肚子最鼓的地方再靠前一点，否则下半张脸会被绒毛吃掉
-    private let facePanelZ: CGFloat = 12.2
+    /// 长毛（6.2 点）会从身体表面往前伸，脸片要比毛尖更靠前，否则下巴被毛吃掉
+    private let facePanelZ: CGFloat = 19.5
     /// 五官（眼、腮红、嘴）比脸的软片再靠前一点
-    private let featureZ: CGFloat = 13.2
+    private let featureZ: CGFloat = 20.5
 
     private let squashNode = SCNNode()
     private let bodyGroup = SCNNode()
@@ -93,8 +95,9 @@ final class PipRig: PetRig {
 
         // 身体：一条轮廓线转一圈出来的钟形绒毛（兜帽和身体连成一片，没有接缝）
         let body = Lathe.node(profile: Self.bodyProfile, segments: 96, material: furMaterial)
-        // 周长约 188 点、高约 82 点 → 每块贴图约 6 点见方，一根毛约 0.05 点粗
-        Fur.apply(to: body, colors: furColors, length: 6.2, tile: CGSize(width: 18, height: 8), layers: 20)
+        // 毛的粗细要接近 1 个屏幕点：周长约 188 点 / (2.8 × 128) ≈ 0.5 点一根（0.9 太粗像刺猬，0.08 太细会闪）。
+        // 再细就会小于一个像素，每帧采到不同的毛 → 闪烁噪点（实测过）
+        Fur.apply(to: body, colors: furColors, length: 5.4, tile: CGSize(width: 4.6, height: 2.0), layers: 20)
         bodyGroup.addChildNode(body)
 
         buildLeg(pivot: legPivotL, x: -9)
@@ -118,7 +121,7 @@ final class PipRig: PetRig {
         let foot = sphereNode(radius: 5.6, material: furMaterial)
         foot.scale = SCNVector3(1.05, 0.68, 1.25)
         foot.position = SCNVector3(0, -8.4, 1.6)
-        Fur.apply(to: foot, colors: furColors, length: 1.8, tile: CGSize(width: 7, height: 4))
+        Fur.apply(to: foot, colors: furColors, length: 1.6, tile: CGSize(width: 0.6, height: 0.3))
         pivot.addChildNode(foot)
     }
 
@@ -130,13 +133,13 @@ final class PipRig: PetRig {
         let arm = capsuleNode(radius: 6.2, height: 17, material: furMaterial)
         arm.position = SCNVector3(sign * 4.0, -6.0, 0)
         arm.eulerAngles = SCNVector3(0, 0, sign * 0.45)
-        Fur.apply(to: arm, colors: furColors, length: 3.4, tile: CGSize(width: 7, height: 4), layers: 16)
+        Fur.apply(to: arm, colors: furColors, length: 3.0, tile: CGSize(width: 0.8, height: 0.5), layers: 16)
         pivot.addChildNode(arm)
     }
 
     private func buildHead() {
         // 脸这一坨绕自己的中心转，不会在绒毛上滑来滑去
-        headPivot.position = SCNVector3(0, 62, 18)
+        headPivot.position = SCNVector3(0, 60, 18)
         bodyGroup.addChildNode(headPivot)
         headPivot.addChildNode(headGroup)
 
@@ -259,7 +262,9 @@ final class PipRig: PetRig {
             for x in 0..<size {
                 let nx = (Double(x) + 0.5) / Double(size) * 2 - 1
                 let ny = (Double(y) + 0.5) / Double(size) * 2 - 1
-                let rho = sqrt(nx * nx + ny * ny)
+                // 超椭圆（指数 2.5）：圆角方形的脸，比正椭圆饱满
+                let pw = 2.5
+                let rho = pow(pow(abs(nx), pw) + pow(abs(ny), pw), 1 / pw)
 
                 var alpha = 1.0
                 var furCover = 0.0
@@ -268,7 +273,9 @@ final class PipRig: PetRig {
                     let angle = atan2(ny, nx) + .pi
                     let k = Int(angle / (2 * .pi) * Double(strands.count)) % strands.count
                     let reach = 0.25 + 0.75 * strands[k]          // 这根毛盖进来多深
-                    if t > 1 - reach { furCover = min(1, (t - (1 - reach)) / max(reach, 0.01) * 1.6) }
+                    // 毛只从头顶和两侧盖进来；下半圈（ny > 0.25，图片里 y 向下）是干净的下巴
+                    let hoodMask = max(0, min(1, (0.25 - ny) / 0.35))
+                    if t > 1 - reach { furCover = min(1, (t - (1 - reach)) / max(reach, 0.01) * 1.6) * hoodMask }
                     alpha = 1 - pow(t, 6)                          // 只在最外缘才真正透明
                 }
 

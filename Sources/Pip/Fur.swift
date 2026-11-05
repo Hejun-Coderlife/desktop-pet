@@ -61,13 +61,13 @@ enum Fur {
     #pragma body
     float strand = _surface.emission.r;
     if (furH > 0.0 && strand < furH) { discard_fragment(); }
-    float3 c = mix(furRoot, furTip, furH * 0.85 + strand * 0.15);
-    c *= mix(0.72, 1.0, sqrt(furH));
+    float3 c = mix(furRoot, furTip, furH * 0.9 + strand * 0.04);
+    c *= mix(0.82, 1.0, sqrt(furH));
     _surface.diffuse = float4(c, 1.0);
     float3 n = normalize(_surface.normal);
     float3 v = normalize(_surface.view);
     float rim = pow(1.0 - saturate(dot(n, v)), 2.2);
-    _surface.emission = float4(furRim * rim * (0.18 + 0.32 * furH), 1.0);
+    _surface.emission = float4(furRim * rim * (0.05 + 0.10 * furH), 1.0);
     """
 
     private static func material(h: CGFloat, colors: Colors, length: CGFloat, tile: CGSize) -> SCNMaterial {
@@ -78,7 +78,9 @@ enum Fur {
         m.emission.contents = strandImage
         m.emission.wrapS = .repeat
         m.emission.wrapT = .repeat
-        m.emission.mipFilter = .none
+        // 角色实际只有 ~90 点高，一根毛不到一个像素：不开 mipmap 时每帧随机采到不同的毛 → 闪烁噪点。
+        // 开了以后远看取平均，绒毛融成一片柔和的绒面，只在轮廓上留下毛边。
+        m.emission.mipFilter = .linear
         m.emission.minificationFilter = .linear
         m.emission.magnificationFilter = .linear
         m.emission.contentsTransform = SCNMatrix4MakeScale(tile.width, tile.height, 1)
