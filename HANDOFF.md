@@ -228,3 +228,9 @@ swift build                 # 调试编译
 - 身体绒毛 shader 加了脸部禁区 `faceHole`（`#pragma varyings` 传模型坐标），脸那块不长毛，四周毛自然高出一圈。
 - 没有脖子：headPitch/headYaw/headTilt 改由整个 bodyGroup 打折执行；走路侧身恢复到 0.42。
 - 预览图都垫了浅灰底（透明 PNG 在预览 App 里看起来像打不开）。
+
+## 往原版靠（2026-11-05）
+- 毛色改成偏粉的灰米色（root #C9B3A6 / tip #EFE4DC），逆光近白；灯光改成柔和棚拍（环境 540、主光 620 偏中性）。
+- 脸：横向椭圆 46×35（超椭圆指数 2.15，faceImage / faceLift / Fur 的 faceHole 三处要一致）；从毛里鼓出 3.6 点（faceLift(atX:y:)），
+  按网格重算法线、lambert 打光，带粉的瓷白。
+- 眼睛小一号（2.35）、blinn 高光 + 下方淡蓝反光；嘴更小（半宽 2.7）；腮红更大更粉。五官都贴着鼓包。

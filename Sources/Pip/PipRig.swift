@@ -5,11 +5,11 @@ import SceneKit
 
 enum PipPalette {
     static let fur       = NSColor.hex(0xE4D7C5)   // 暖米色绒毛（整体基调）
-    static let furRoot   = NSColor.hex(0xCDB89F)   // 毛根：更深，做出绒毛的厚度
-    static let furTip    = NSColor.hex(0xF4ECE0)   // 毛尖：更浅
-    static let furRim    = NSColor.hex(0xFFE9CC)   // 逆光绒边：暖
+    static let furRoot   = NSColor.hex(0xC9B3A6)   // 毛根：偏粉的灰米色（原版那种柔和的玫瑰灰褐）
+    static let furTip    = NSColor.hex(0xEFE4DC)   // 毛尖：更浅、更白
+    static let furRim    = NSColor.hex(0xFFF3EE)   // 逆光绒边：近白
     static let face      = NSColor.hex(0xF3EADD)   // 更亮的奶油脸
-    static let cheek     = NSColor.hex(0xE9A296)   // 腮红
+    static let cheek     = NSColor.hex(0xF2A7A7)   // 腮红：更粉
     static let eye       = NSColor.hex(0x17191F)   // 近黑，略偏冷
     static let shine     = NSColor.hex(0xEAF2FF)   // 眼里的冷光
     static let mouth     = NSColor.hex(0x3A3330)
@@ -43,8 +43,8 @@ final class PipRig: PetRig {
 
     /// 脸的椭圆（宽 38、高 33），不是正圆
     /// 脸：偏大的圆角方形（超椭圆），占头部大半——参考原版，下巴干净、不被毛盖住
-    private let faceWidth: CGFloat = 43
-    private let faceHeight: CGFloat = 40
+    private let faceWidth: CGFloat = 46
+    private let faceHeight: CGFloat = 35
     /// 脸那张软片的深度：比肚子最鼓的地方再靠前一点，否则下半张脸会被绒毛吃掉
     /// 脸中心在身体上的高度。脸是贴着身体曲面长的一块（不是浮在前面的平面片），侧身时不会戳出轮廓
     private let faceCenterY: CGFloat = 60
@@ -68,6 +68,15 @@ final class PipRig: PetRig {
         return SCNVector3(x, y, sqrt(max(0, r * r - x * x)))
     }
 
+    /// 脸是从毛里鼓出来的一团（中间高、边缘低），不是平贴的一层
+    private let faceBulge: CGFloat = 3.6
+    private func faceLift(atX x: CGFloat, y: CGFloat) -> CGFloat {
+        let dx = abs(x / (faceWidth / 2)), dy = abs((y - faceCenterY) / (faceHeight / 2))
+        let r = pow(pow(dx, 2.15) + pow(dy, 2.15), 1 / 2.15)
+        let t = max(0, 1 - r * r)
+        return faceLift + faceBulge * sqrt(t)
+    }
+
     /// 把一个节点贴到曲面上：位置 + 绕 y 轴转到切面方向
     private func stick(_ node: SCNNode, x: CGFloat, y: CGFloat, lift: CGFloat) {
         let p = surfacePoint(x, y, lift: lift)
@@ -82,8 +91,8 @@ final class PipRig: PetRig {
     private let eyeGroupL = SCNNode()
     private let eyeGroupR = SCNNode()
     /// 眼珠的原始位置，眼神偏移以它为基准
-    private let eyeBaseL = CGPoint(x: -8.7, y: 62.0)
-    private let eyeBaseR = CGPoint(x: 8.7, y: 62.0)
+    private let eyeBaseL = CGPoint(x: -9.4, y: 61.0)
+    private let eyeBaseR = CGPoint(x: 9.4, y: 61.0)
     /// 眼神方向（-1…1，已在 Stage 里按朝向翻过），由 setGaze 写入、apply 里统一生效
     private var gaze = CGPoint.zero
     private let armPivotL = SCNNode()
@@ -258,14 +267,23 @@ final class PipRig: PetRig {
 
         // 眼睛（小椭圆 + 冷光）
         for (group, sign) in [(eyeGroupL, CGFloat(-1)), (eyeGroupR, CGFloat(1))] {
-            stick(group, x: sign * 8.7, y: 62, lift: faceLift + 0.9)
+            stick(group, x: sign * 9.4, y: 61, lift: faceLift(atX: sign * 9.4, y: 61) + 0.7)
 
-            let eye = sphereNode(radius: 2.9, material: makeSmoothMaterial(PipPalette.eye))
+            let eyeMat = makeSmoothMaterial(PipPalette.eye)
+            eyeMat.lightingModel = .blinn
+            eyeMat.specular.contents = NSColor(white: 0.9, alpha: 1)
+            eyeMat.shininess = 0.9
+            let eye = sphereNode(radius: 2.35, material: eyeMat)
             eye.scale = SCNVector3(0.95, 1.1, 0.5)
             group.addChildNode(eye)
 
-            let shine = sphereNode(radius: 0.62, material: makeSmoothMaterial(PipPalette.shine))
-            shine.position = SCNVector3(sign * -0.7, 0.85, 1.0)
+            let shine = sphereNode(radius: 0.6, material: makeSmoothMaterial(PipPalette.shine))
+            shine.position = SCNVector3(sign * -0.55, 0.75, 1.0)
+            // 下方一点淡蓝反光，原版眼睛的「水汪汪」
+            let glint = sphereNode(radius: 0.55, material: makeSmoothMaterial(NSColor.hex(0x5C7FA8)))
+            glint.scale = SCNVector3(1.4, 0.6, 0.4)
+            glint.position = SCNVector3(sign * 0.4, -1.3, 0.9)
+            group.addChildNode(glint)
             group.addChildNode(shine)
 
             headGroup.addChildNode(group)
@@ -287,7 +305,7 @@ final class PipRig: PetRig {
         let node = SCNNode()
         let material = makeSmoothMaterial(PipPalette.mouth)
 
-        let halfWidth: CGFloat = 3.9
+        let halfWidth: CGFloat = 2.7
         let topY: CGFloat = 0.8
         let dipY: CGFloat = -1.2
 
@@ -299,9 +317,9 @@ final class PipRig: PetRig {
             let oneMinus = 1 - t
             let x = oneMinus * oneMinus * -halfWidth + t * t * halfWidth
             let y = -4.2 + oneMinus * oneMinus * topY + 2 * oneMinus * t * dipY + t * t * topY
-            points.append(surfacePoint(x, faceCenterY + y, lift: faceLift + 0.45))
+            points.append(surfacePoint(x, faceCenterY - 1.5 + y, lift: faceLift(atX: x, y: faceCenterY - 1.5 + y) + 0.3))
         }
-        node.addChildNode(Tube.node(points: points, radius: 0.42, material: material))
+        node.addChildNode(Tube.node(points: points, radius: 0.36, material: material))
         return node
     }
 
@@ -358,8 +376,10 @@ final class PipRig: PetRig {
         // 两只眼的 z 相同，滑多远都不会被脸切掉，大小一只是对得上的。
         let lookX = gaze.x * 2.8
         let lookY = gaze.y * 1.9
-        stick(eyeGroupL, x: eyeBaseL.x + lookX, y: eyeBaseL.y + lookY, lift: faceLift + 0.9)
-        stick(eyeGroupR, x: eyeBaseR.x + lookX, y: eyeBaseR.y + lookY, lift: faceLift + 0.9)
+        for (g, b) in [(eyeGroupL, eyeBaseL), (eyeGroupR, eyeBaseR)] {
+            let ex = b.x + lookX, ey = b.y + lookY
+            stick(g, x: ex, y: ey, lift: faceLift(atX: ex, y: ey) + 0.7)
+        }
 
         SCNTransaction.commit()
     }
@@ -371,8 +391,8 @@ final class PipRig: PetRig {
         let size = 512
         var pixels = [UInt8](repeating: 0, count: size * size * 4)
 
-        let top = (r: 0.996, g: 0.980, b: 0.957)      // 上：近白奶油
-        let bottom = (r: 0.960, g: 0.925, b: 0.874)   // 下：略暖沉
+        let top = (r: 0.965, g: 0.945, b: 0.930)      // 上：带一点粉的瓷白（明暗交给灯光）
+        let bottom = (r: 0.950, g: 0.915, b: 0.900)   // 下：略暖略粉
         let rimTone = (r: 0.930, g: 0.880, b: 0.810)  // 边缘：往绒毛色收（不再是发脏的灰褐）
         let featherStart: Double = 0.80               // 最外一圈是「被绒毛盖住」的毛边
         let featherEnd: Double = 1.0
@@ -389,7 +409,7 @@ final class PipRig: PetRig {
                 let nx = (Double(x) + 0.5) / Double(size) * 2 - 1
                 let ny = (Double(y) + 0.5) / Double(size) * 2 - 1
                 // 超椭圆（指数 2.5）：圆角方形的脸，比正椭圆饱满
-                let pw = 2.5
+                let pw = 2.15   // 接近正椭圆（原版是横向的椭圆脸，不是圆角方形）
                 let rho = pow(pow(abs(nx), pw) + pow(abs(ny), pw), 1 / pw)
 
                 var alpha = 1.0
@@ -454,11 +474,23 @@ final class PipRig: PetRig {
                 let u = CGFloat(i) / CGFloat(cols), v = CGFloat(j) / CGFloat(rows)
                 let x = (u - 0.5) * faceWidth
                 let y = faceCenterY + (0.5 - v) * faceHeight
-                let p = surfacePoint(x, y, lift: faceLift)
-                pos.append(p)
-                let l = max(0.001, sqrt(p.x * p.x + p.z * p.z))
-                nor.append(SCNVector3(p.x / l, 0, p.z / l))
+                pos.append(surfacePoint(x, y, lift: faceLift(atX: x, y: y)))
+                nor.append(SCNVector3(0, 0, 1))   // 先占位，下面按网格重算
                 uv.append(CGPoint(x: u, y: v))
+            }
+        }
+        // 按相邻顶点重算法线，鼓包才有真实的明暗
+        for j in 0...rows {
+            for i in 0...cols {
+                let k = j * (cols + 1) + i
+                let l = pos[j * (cols + 1) + max(i - 1, 0)], r = pos[j * (cols + 1) + min(i + 1, cols)]
+                let u = pos[max(j - 1, 0) * (cols + 1) + i], d = pos[min(j + 1, rows) * (cols + 1) + i]
+                let tx = SCNVector3(r.x - l.x, r.y - l.y, r.z - l.z), ty = SCNVector3(u.x - d.x, u.y - d.y, u.z - d.z)
+                var n = SCNVector3(tx.y * ty.z - tx.z * ty.y, tx.z * ty.x - tx.x * ty.z, tx.x * ty.y - tx.y * ty.x)
+                let len = max(0.0001, sqrt(n.x * n.x + n.y * n.y + n.z * n.z))
+                n = SCNVector3(n.x / len, n.y / len, n.z / len)
+                if n.z < 0 { n = SCNVector3(-n.x, -n.y, -n.z) }
+                nor[k] = n
             }
         }
         var idx: [UInt32] = []
@@ -472,7 +504,8 @@ final class PipRig: PetRig {
                                           SCNGeometrySource(textureCoordinates: uv)],
                                 elements: [SCNGeometryElement(indices: idx, primitiveType: .triangles)])
         let material = SCNMaterial()
-        material.lightingModel = .constant
+        material.lightingModel = .lambert   // 有光影的软陶鼓包（以前是 constant 平涂，像贴纸）
+        material.ambient.contents = NSColor(white: 0.55, alpha: 1)
         material.diffuse.contents = Self.faceImage
         material.blendMode = .alpha
         material.isDoubleSided = true
@@ -511,7 +544,7 @@ final class PipRig: PetRig {
 
     /// 一张贴在脸颊上的软渐变片，边缘自然化开
     private func blushNode(sign: CGFloat) -> SCNNode {
-        let width: CGFloat = 9.5
+        let width: CGFloat = 12.5
         let plane = SCNPlane(width: width, height: width * 0.72)
 
         let material = SCNMaterial()
@@ -523,7 +556,7 @@ final class PipRig: PetRig {
         plane.materials = [material]
 
         let node = SCNNode(geometry: plane)
-        stick(node, x: sign * 9.8, y: 55, lift: faceLift + 0.25)
+        stick(node, x: sign * 11.5, y: 55.5, lift: faceLift(atX: sign * 11.5, y: 55.5) + 0.2)
         return node
     }
 
