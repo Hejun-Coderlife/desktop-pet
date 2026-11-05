@@ -6,3 +6,4 @@ dist/
 video/frames/
 video/*.mp4
 video/assets/
+.build-x86/
