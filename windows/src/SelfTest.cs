@@ -29,6 +29,9 @@ namespace Pip
             catch (Exception e) { Fail("异常：" + e); }
             Line(problems.Count == 0 ? "\nPASS" : $"\nFAIL（{problems.Count} 项）");
             File.WriteAllText(Path.Combine(dir, "report.txt"), log.ToString(), Encoding.UTF8);
+            // 用户自己双击跑的（不是 CI）：跑完打开结果文件夹，方便把 report.txt 和截图发过来
+            if (Environment.GetEnvironmentVariable("GITHUB_ACTIONS") == null)
+                try { Process.Start("explorer.exe", "\"" + dir + "\""); } catch { }
             return problems.Count == 0 ? 0 : 1;
         }
 

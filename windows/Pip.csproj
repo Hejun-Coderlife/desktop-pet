@@ -24,5 +24,6 @@
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Drawing" />
+    <EmbeddedResource Include="app.ico" LogicalName="app.ico" />
   </ItemGroup>
 </Project>

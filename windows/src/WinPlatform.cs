@@ -264,10 +264,12 @@ namespace Pip
                 if (pid == me) return true;
                 if (!Bounds(h, out var r) || r.W <= 0 || r.H <= 0) return true;
                 bool coversScreen = r.Left <= s.Monitor.Left && r.Top <= s.Monitor.Top && r.Right >= s.Monitor.Right && r.Bottom >= s.Monitor.Bottom;
+                // 盖满整屏的窗口（多半是看不见的覆盖层；真全屏时 Pip 本来就藏起来了）不当平台，也不算挡住别人
+                if (coversScreen) return true;
                 try
                 {
                     double wPts = r.W / s.Scale, hPts = r.H / s.Scale;
-                    if (wPts < 100 || hPts < 60 || coversScreen) return true;
+                    if (wPts < 100 || hPts < 60) return true;
                     double top = (s.Monitor.Bottom - r.Top) / (double)s.Scale;
                     double x0 = (r.Left - s.Monitor.Left) / (double)s.Scale, x1 = (r.Right - s.Monitor.Left) / (double)s.Scale;
                     if (!sawFirst)

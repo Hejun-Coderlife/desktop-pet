@@ -268,3 +268,9 @@ swift build                 # 调试编译
   开头 0.5 秒一句 edge-tts AndrewNeural 配音 "I made a desktop pet."（video/assets/vo-en.mp3），配音时音乐压到 0.3。
   输出 pip-demo-en.mp4（音乐+配音）、pip-demo-en-仅旁白.mp4（只有配音）。
 - 封面字：tools/make_cover_title.py（卡通风）、make_cover_title_poster.py（海报风中文）、make_cover_title_poster_en.py（海报风英文）→ video/cover-title*.png
+- 11-05 右键 Pip = 弹出菜单（菜单栏图标被刘海挡住时用）；再双击 Pip.app = 把隐藏的小人叫出来。
+- 11-05 Mac 安装包：tools/make_dmg.sh → dist/Pip.dmg（arm64 + x86_64 通用，ad-hoc 签名，别的 Mac 第一次要右键打开）。
+- 11-06 **Windows 版**（windows/，说明见 windows/README.md）：C# .NET Framework 4.8 单个 Pip.exe（dist/Pip.exe），OpenGL 3.3 离屏渲染 + 分层窗口。
+  模型/着色器/状态机逐行移植。颜色按 Mac 真机截图对的：绒毛色不做 sRGB 解码、毛高贴图做解码（Renderer.FurLinear/StrandLinear）。
+  注意 `Pip --posesheet` 出的图是没做 sRGB 编码的（bgra8Unorm），偏暗偏艳，别拿它当颜色参考。
+  **还没在真 Windows 上跑过**：推 GitHub（私有仓库）跑 CI、或在 Windows 电脑上 `Pip.exe --selftest`。

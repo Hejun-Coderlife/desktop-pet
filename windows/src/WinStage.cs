@@ -68,6 +68,7 @@ namespace Pip
         double boxX = -1, boxY = -1;
         IntPtr memDC, dib, dibBits; int dibW, dibH;
         public string SoundApp;
+        double soundUntil;
         public int Frames;
 
         public double Now => clock.Elapsed.TotalSeconds;
@@ -177,7 +178,10 @@ namespace Pip
             }
             else { World.SetPlatform(null); World.SetPlatforms(new List<Platform>()); }
 
-            SoundApp = Settings.Dance ? SoundOutput.Playing() : null;
+            // 峰值电平在歌曲安静的地方会掉到 0：检测到一次就再算 2.5 秒，免得跳舞一停一跳
+            var app = Settings.Dance ? SoundOutput.Playing() : null;
+            if (app != null) { SoundApp = app; soundUntil = Now + 2.5; }
+            else if (Now > soundUntil || !Settings.Dance) SoundApp = null;
             World.SoundPlaying = SoundApp != null;
         }
 

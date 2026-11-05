@@ -141,8 +141,15 @@ namespace Pip
             tray.MouseClick += (s, e) => { if (e.Button == MouseButtons.Left) stage.ShowIfHidden(); };
         }
 
+        /// 托盘用 exe 里嵌的 app.ico，按系统小图标尺寸取（高分屏会取 32 或 48 那张）
         static Icon AppIcon()
         {
+            try
+            {
+                using (var st = typeof(Program).Assembly.GetManifestResourceStream("app.ico"))
+                    if (st != null) return new Icon(st, SystemInformation.SmallIconSize);
+            }
+            catch { }
             try { return Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { return SystemIcons.Application; }
         }
     }
