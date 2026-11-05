@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- 在 Mac 上验证渲染：和 Windows 版共用同一套模型/着色器/状态机代码，用 CGL 建离屏 OpenGL 上下文，出 PNG 和 Mac 原版对比 -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/Mathx.cs;../../src/Mesh.cs;../../src/Textures.cs;../../src/Rig.cs;../../src/World.cs;../../src/Renderer.cs;../../src/GL.cs;../../src/Settings.cs;../../src/Scene.cs" />
+  </ItemGroup>
+</Project>

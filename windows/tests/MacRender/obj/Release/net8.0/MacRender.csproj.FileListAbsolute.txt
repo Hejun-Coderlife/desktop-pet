@@ -1,0 +1,14 @@
+/Users/hejun/Projects/desktop-pet/windows/tests/MacRender/bin/Release/net8.0/MacRender
+/Users/hejun/Projects/desktop-pet/windows/tests/MacRender/bin/Release/net8.0/MacRender.deps.json
+/Users/hejun/Projects/desktop-pet/windows/tests/MacRender/bin/Release/net8.0/MacRender.runtimeconfig.json
+/Users/hejun/Projects/desktop-pet/windows/tests/MacRender/bin/Release/net8.0/MacRender.dll
+/Users/hejun/Projects/desktop-pet/windows/tests/MacRender/bin/Release/net8.0/MacRender.pdb
+/Users/hejun/Projects/desktop-pet/windows/tests/MacRender/obj/Release/net8.0/MacRender.GeneratedMSBuildEditorConfig.editorconfig
+/Users/hejun/Projects/desktop-pet/windows/tests/MacRender/obj/Release/net8.0/MacRender.AssemblyInfoInputs.cache
+/Users/hejun/Projects/desktop-pet/windows/tests/MacRender/obj/Release/net8.0/MacRender.AssemblyInfo.cs
+/Users/hejun/Projects/desktop-pet/windows/tests/MacRender/obj/Release/net8.0/MacRender.csproj.CoreCompileInputs.cache
+/Users/hejun/Projects/desktop-pet/windows/tests/MacRender/obj/Release/net8.0/MacRender.dll
+/Users/hejun/Projects/desktop-pet/windows/tests/MacRender/obj/Release/net8.0/refint/MacRender.dll
+/Users/hejun/Projects/desktop-pet/windows/tests/MacRender/obj/Release/net8.0/MacRender.pdb
+/Users/hejun/Projects/desktop-pet/windows/tests/MacRender/obj/Release/net8.0/MacRender.genruntimeconfig.cache
+/Users/hejun/Projects/desktop-pet/windows/tests/MacRender/obj/Release/net8.0/ref/MacRender.dll
