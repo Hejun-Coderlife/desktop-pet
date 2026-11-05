@@ -3,3 +3,5 @@ dist/
 .DS_Store
 *.xcodeproj
 *.xcworkspace
+video/frames/
+video/*.mp4

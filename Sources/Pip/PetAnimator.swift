@@ -164,9 +164,11 @@ enum PetAnimator {
         case .perch:
             // 坐在窗口顶边上，两条小腿悬在边外前后晃
             let swing = sin(t * 3.0)
-            pose.squashY = 0.9
-            pose.legLeft = -1.25 + swing * 0.35
-            pose.legRight = -1.25 - swing * 0.35
+            // 屁股坐在边上（身体往下沉），两条腿垂在窗口正面前后晃（正面相机看得见）
+            pose.squashY = 0.92
+            pose.bob = -11
+            pose.legLeft = 0.25 + swing * 0.45
+            pose.legRight = 0.25 - swing * 0.45
             pose.armLeft = 0.2
             pose.armRight = 0.2
             pose.headTilt = sin(t * 0.8) * 0.06

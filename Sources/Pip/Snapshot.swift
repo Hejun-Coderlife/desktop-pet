@@ -118,7 +118,7 @@ enum Snapshot {
 
     // MARK: 渲染到纹理再读回
 
-    private static func render(scene: SCNScene, camera: SCNNode, width: Int, height: Int) -> CGImage? {
+    static func render(scene: SCNScene, camera: SCNNode, width: Int, height: Int) -> CGImage? {
         guard let device = MTLCreateSystemDefaultDevice() else { return nil }
 
         let renderer = SCNRenderer(device: device, options: nil)
@@ -191,7 +191,7 @@ enum Snapshot {
                        intent: .defaultIntent)
     }
 
-    private static func write(image: CGImage, to path: String) -> Bool {
+    static func write(image: CGImage, to path: String) -> Bool {
         let url = URL(fileURLWithPath: path)
         try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(),
                                                  withIntermediateDirectories: true)

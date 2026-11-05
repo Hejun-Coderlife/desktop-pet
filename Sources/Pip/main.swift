@@ -15,6 +15,15 @@ if let index = cliArguments.firstIndex(of: "--snapshot") {
     exit(0)
 }
 
+// 演示视频：逐帧渲染到目录（--demo 目录 [起始秒 结束秒]）
+if let index = cliArguments.firstIndex(of: "--demo") {
+    let dir = index + 1 < cliArguments.count ? cliArguments[index + 1] : "/tmp/pip-demo"
+    let from = index + 2 < cliArguments.count ? Double(cliArguments[index + 2]) : nil
+    let to = index + 3 < cliArguments.count ? Double(cliArguments[index + 3]) : nil
+    Demo.run(dir: dir, from: from, to: to)
+    exit(0)
+}
+
 // 五种状态姿势对照图（开发自用）
 if let index = cliArguments.firstIndex(of: "--posesheet") {
     let path = index + 1 < cliArguments.count ? cliArguments[index + 1] : "/tmp/pip-poses.png"

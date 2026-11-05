@@ -10,7 +10,11 @@ enum Outfit: String {
         set { UserDefaults.standard.set(newValue, forKey: "outfitsEnabled") }
     }
 
+    /// 演示视频用：强制下一只新建的 Pip 戴什么
+    static var override: Outfit?
+
     static func current(date: Date = Date()) -> Outfit {
+        if let o = override { return o }
         if let forced = ProcessInfo.processInfo.environment["PIP_OUTFIT"], let o = Outfit(rawValue: forced) { return o }
         guard enabled else { return .none }
         let cal = Calendar(identifier: .gregorian)

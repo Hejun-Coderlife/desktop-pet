@@ -550,9 +550,13 @@ final class PetWorld {
                  stateTime newStateTime: CGFloat = 0,
                  velocity newVelocity: CGVector = .zero,
                  grabVelocity newGrabVelocity: CGVector = .zero,
-                 sign: String? = nil) {
+                 sign: String? = nil,
+                 startled newStartled: Bool = false,
+                 facing newFacing: CGFloat? = nil) {
         state = newState
         signText = sign
+        startled = newStartled
+        if let newFacing { facing = newFacing }
         time = newTime
         walkPhase = newPhase
         stateTime = newStateTime
