@@ -58,6 +58,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(quitItem)
 
         statusItem.menu = menu
+        stage.contextMenu = menu
     }
 
     var isReady: Bool { statusItem.button != nil }

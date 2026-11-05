@@ -37,11 +37,19 @@ final class PetSceneView: SCNView {
     override func mouseUp(with event: NSEvent) {
         stage?.petMouseUp()
     }
+
+    /// 右键 Pip：弹出和菜单栏图标同一个菜单（菜单栏图标太多时会被刘海挡住）
+    override func rightMouseDown(with event: NSEvent) {
+        guard let menu = stage?.contextMenu else { return }
+        NSMenu.popUpContextMenu(menu, with: event, for: self)
+    }
 }
 
 // MARK: - 舞台
 
 final class Stage {
+    /// 右键菜单（由 MenuBarController 设置）
+    var contextMenu: NSMenu?
 
     private let panel: PetPanel
     private let sceneView: PetSceneView
