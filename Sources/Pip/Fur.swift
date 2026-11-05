@@ -68,7 +68,7 @@ enum Fur {
     // 脸部禁区：光滑的脸贴在身体曲面上，这一块不长毛（四周的毛自然高出一截，像脸嵌在毛里）
     if (furH > 0.0 && faceHole.z > 0.0 && in.furModelPos.z > 0.0) {
         float2 d = abs((in.furModelPos.xy - faceHole.xy) / faceHole.zw);
-        float r = pow(pow(d.x, 2.7) + pow(d.y, 2.7), 1.0 / 2.7);
+        float r = pow(pow(d.x, 2.35) + pow(d.y, 2.35), 1.0 / 2.35);
         if (r < 0.96) { discard_fragment(); }
     }
     float strand = _surface.emission.r;

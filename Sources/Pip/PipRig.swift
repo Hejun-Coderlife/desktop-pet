@@ -72,7 +72,7 @@ final class PipRig: PetRig {
     private let faceBulge: CGFloat = 3.6
     private func faceLift(atX x: CGFloat, y: CGFloat) -> CGFloat {
         let dx = abs(x / (faceWidth / 2)), dy = abs((y - faceCenterY) / (faceHeight / 2))
-        let r = pow(pow(dx, 2.7) + pow(dy, 2.7), 1 / 2.7)
+        let r = pow(pow(dx, 2.35) + pow(dy, 2.35), 1 / 2.35)
         let t = max(0, 1 - r * r)
         return faceLift + faceBulge * sqrt(t)
     }
@@ -409,7 +409,7 @@ final class PipRig: PetRig {
                 let nx = (Double(x) + 0.5) / Double(size) * 2 - 1
                 let ny = (Double(y) + 0.5) / Double(size) * 2 - 1
                 // 超椭圆（指数 2.5）：圆角方形的脸，比正椭圆饱满
-                let pw = 2.7    // 横向的圆头椭圆：比正椭圆两头更圆（正椭圆贴在弧面上两头会显尖）
+                let pw = 2.35   // 横向的圆头椭圆：比正椭圆两头更圆（正椭圆贴在弧面上两头会显尖）
                 let rho = pow(pow(abs(nx), pw) + pow(abs(ny), pw), 1 / pw)
 
                 var alpha = 1.0
