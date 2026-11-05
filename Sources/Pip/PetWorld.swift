@@ -352,7 +352,7 @@ final class PetWorld {
                 wanderDuration = rng.range(3, 7)
                 return
             }
-        } else if let p = platform, attentionX == nil, rng.chance(0.22), jumpUp(to: p) {
+        } else if attentionX == nil, rng.chance(0.3), let p = nearestReachable(), jumpUp(to: p) {
             return
         }
         let shouldWalk = rng.chance(0.58)
@@ -387,6 +387,8 @@ final class PetWorld {
         wanderTimer += dt
         if wanderTimer >= wanderDuration {
             chooseWanderAction()
+            // 刚决定跳上 / 跳下窗口：别往下走了，否则下面会把速度清零、按回地面（以前自己跳窗口一直没生效就是这个）
+            if state == .falling { return }
         }
 
         if state == .walk {
@@ -406,6 +408,27 @@ final class PetWorld {
         velocity = .zero
     }
 
+    /// 自己往上跳时最远够得着多远（水平，点）
+    static let jumpReach: CGFloat = 600
+
+    /// 屏幕上所有露在外面的窗口顶边里，挑一个够得着、离得最近的（以前只看最前面 App 的窗口，
+    /// 你在终端里打字时终端是最前面的，旁边的小窗口就永远不会被选中）
+    private func nearestReachable() -> Platform? {
+        let all = platforms + (platform.map { [$0] } ?? [])
+        return all
+            .filter { p in
+                let h = p.y - groundY
+                guard h > 70, h < 760, p.x1 - p.x0 > halfWidth * 3 else { return false }
+                let tx = min(max(position.x, p.x0 + halfWidth * 1.4), p.x1 - halfWidth * 1.4)
+                return abs(tx - position.x) < Self.jumpReach
+            }
+            .min { a, b in
+                let da = abs(min(max(position.x, a.x0), a.x1) - position.x)
+                let db = abs(min(max(position.x, b.x0), b.x1) - position.x)
+                return da < db
+            }
+    }
+
     // MARK: 跳上 / 跳下窗口
 
     /// 算一条抛物线从地面跳到窗口顶边；够不着（太高、太矮、窗口太窄）就不跳
@@ -413,7 +436,7 @@ final class PetWorld {
         let h = p.y - groundY
         guard h > 70, h < 760, p.x1 - p.x0 > halfWidth * 3 else { return false }
         let tx = min(max(position.x, p.x0 + halfWidth * 1.4), p.x1 - halfWidth * 1.4)
-        guard abs(tx - position.x) < 420 else { return false }
+        guard abs(tx - position.x) < Self.jumpReach else { return false }
         let rise = h + 46                                    // 比顶边再高一点，落下来时踩上去
         let vy = sqrt(2 * Self.gravity * rise)
         let tUp = vy / Self.gravity

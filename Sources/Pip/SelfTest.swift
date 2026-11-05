@@ -13,7 +13,27 @@ enum SelfTest {
         let label: String
     }
 
+    /// 旁边有个小窗口（不是最前面的 App）：30 秒内它应该自己跳上去站住
+    static func jumpTest() -> Bool {
+        let w = PetWorld(size: CGSize(width: 1470, height: 956), groundY: 56, seed: 42)
+        w.setPlatform(nil)
+        let small = Platform(id: 7, x0: 700, x1: 900, y: 420)
+        w.setPlatforms([small])
+        w.idleSeconds = 0
+        for step in 0..<(30 * 60) {
+            w.update(dt: 1.0 / 60.0)
+            if ProcessInfo.processInfo.environment["PIP_DEBUG"] != nil && (step % 30 == 0 || w.state == .falling) { print("   t=\(step/60) \(w.state.rawValue) x=\(Int(w.position.x)) y=\(Int(w.position.y))") }
+            if w.onPlatform && w.standing?.id == 7 && abs(w.position.y - 420) < 0.5 {
+                print("  [通过] 第 \(String(format: "%.1f", Double(step) / 60)) 秒自己跳上了小窗口（不是最前面的 App）")
+                return true
+            }
+        }
+        print("  [失败] 30 秒内没跳上小窗口，最后位置 x=\(Int(w.position.x)) y=\(Int(w.position.y))")
+        return false
+    }
+
     static func run() -> Bool {
+        let jumped = jumpTest()
         let size = CGSize(width: 1600, height: 900)
         let groundY: CGFloat = 60
         let world = PetWorld(size: size, groundY: groundY, seed: 20261105)
@@ -133,6 +153,7 @@ enum SelfTest {
         print("  [\((world.state == .idle || world.state == .walk) ? "通过" : "失败")] 最后回到闲逛（当前「\(world.state.displayName)」）")
         print("")
 
+        if !jumped { problems.append("没有自己跳上旁边的小窗口") }
         if problems.isEmpty {
             print("PASS")
             return true

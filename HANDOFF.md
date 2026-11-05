@@ -256,3 +256,4 @@ swift build                 # 调试编译
 - 背景音乐：`tools/make_music.py`（原创合成，八音盒+低音+轻鼓，112 拍/分，用 /tmp/ftvenv 的 numpy）→ `video/assets/music.wav`；
   合成命令加 `-i video/assets/music.wav -c:a aac -b:a 192k -shortest`。
 - 11-05 视频里去掉所有文字（片尾也不放），只保留举牌上的「喝口水吧 💧」。
+- 11-05 修：决定跳上/跳下窗口的那一帧，updateWander 末尾把速度清零按回地面 → 自己跳窗口一直没生效。现在跳的目标 = 所有露出来的窗口顶边里最近够得着的（jumpReach 600）。自检加了「旁边小窗口 30 秒内要跳上去」。
