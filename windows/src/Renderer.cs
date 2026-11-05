@@ -127,6 +127,8 @@ void main() {
         uint msFbo, msColor, msDepth, ssFbo, ssColor, outFbo, outColor;
         int fbW, fbH, ssW, ssH, outW, outH;
         public string Info { get; private set; }
+        /// 驱动是 CPU 软件渲染（llvmpipe / 微软 GDI 通用实现等虚拟机常见情况）
+        public bool Software { get; private set; }
         /// 绒毛颜色 / 毛高贴图是否按 sRGB 解码：和 Mac 真机屏幕截图逐点对色定下来的（绒毛色不解码、毛高贴图解码）
         public static bool FurLinear = Environment.GetEnvironmentVariable("PIP_FURLIN") == "1";
         public static float LodBias = float.TryParse(Environment.GetEnvironmentVariable("PIP_LODBIAS"), out var lb) ? lb : 0;
@@ -143,6 +145,8 @@ void main() {
         public void Init()
         {
             Info = $"{GL.Str(GL.VENDOR)} | {GL.Str(GL.RENDERER)} | GL {GL.Str(GL.VERSION)}";
+            var rn = (GL.Str(GL.RENDERER) ?? "").ToLowerInvariant();
+            Software = rn.Contains("llvmpipe") || rn.Contains("softpipe") || rn.Contains("gdi generic") || rn.Contains("basic render");
             prog = Link(Compile(GL.VERTEX_SHADER, VS), Compile(GL.FRAGMENT_SHADER, FS));
             ambient = Lin(new V3(1.0f, 0.97f, 0.95f)) * 0.54f;
             void Light(int i, V3 srgb, float intensity, V3 euler)
@@ -251,7 +255,7 @@ void main() {
         public void Render(IList<Node> roots, float ox, float oy, float wPts, float hPts, float scale, IntPtr dest)
         {
             int outWpx = Math.Max(1, (int)Math.Round(wPts * scale)), outHpx = Math.Max(1, (int)Math.Round(hPts * scale));
-            int ss = scale >= 1.99f ? 1 : 2;   // 低分屏也按 2 倍渲染再缩小：绒毛的 mipmap 层级和 Mac 视网膜屏一致
+            int ss = scale >= 1.99f || Software ? 1 : 2;   // 没显卡（软件渲染）时不超采样，省 3/4 的活   // 低分屏也按 2 倍渲染再缩小：绒毛的 mipmap 层级和 Mac 视网膜屏一致
             EnsureTargets(outWpx, outHpx, ss);
 
             GL.BindFramebuffer(GL.FRAMEBUFFER, msFbo);

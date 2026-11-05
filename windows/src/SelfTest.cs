@@ -111,12 +111,19 @@ namespace Pip
 
         [DllImport("user32.dll")] static extern bool SetCursorPos(int x, int y);
         [DllImport("user32.dll")] static extern void mouse_event(uint flags, int dx, int dy, uint data, UIntPtr extra);
+        [DllImport("gdi32.dll")] static extern bool BitBlt(IntPtr dst, int x, int y, int w, int h, IntPtr src, int sx, int sy, uint rop);
         const uint MOUSEEVENTF_LEFTDOWN = 2, MOUSEEVENTF_LEFTUP = 4;
 
         static Bitmap Capture(Rectangle rc)
         {
+            // 直接 BitBlt：.NET Framework 的 CopyFromScreen 不接受 SourceCopy|CaptureBlt 组合值；CAPTUREBLT 才截得到分层窗口
             var bmp = new Bitmap(rc.Width, rc.Height, PixelFormat.Format32bppArgb);
-            using (var g = Graphics.FromImage(bmp)) g.CopyFromScreen(rc.Left, rc.Top, 0, 0, rc.Size, CopyPixelOperation.SourceCopy | CopyPixelOperation.CaptureBlt);
+            using (var g = Graphics.FromImage(bmp))
+            {
+                var dst = g.GetHdc(); var scr = Win32.GetDC(IntPtr.Zero);
+                BitBlt(dst, 0, 0, rc.Width, rc.Height, scr, rc.Left, rc.Top, 0x00CC0020 | 0x40000000);
+                Win32.ReleaseDC(IntPtr.Zero, scr); g.ReleaseHdc(dst);
+            }
             return bmp;
         }
 
@@ -234,18 +241,28 @@ namespace Pip
             steps.Add((12.0, () => { Shot("live-4-sign.png"); Line("  举牌：" + stage.Describe()); if (stage.World.State != PetState.Sign) Fail("现在提醒一下 没举牌"); }));
             steps.Add((12.5, () => Application.ExitThread()));
 
+            // 每画一帧最多走一步：没显卡时一帧要大半秒，不这样的话鼠标按下/拖动/松手会挤在两帧之间，Pip 来不及反应。
+            // 步骤的时间点按"已经走过的时间"往后顺延，相邻步骤之间至少隔着一帧
             var sw = Stopwatch.StartNew();
-            int next = 0;
+            int next = 0, frameAtStep = -1;
+            double lag = 0;
             var drive = new Timer { Interval = 10 };
             drive.Tick += (o, e) =>
             {
-                while (next < steps.Count && sw.Elapsed.TotalSeconds >= steps[next].at) { var a = steps[next++].act; try { a(); } catch (Exception ex) { Fail("步骤异常：" + ex.Message); } }
+                if (next >= steps.Count || stage.Frames <= frameAtStep) return;
+                double at = steps[next].at + lag;
+                if (sw.Elapsed.TotalSeconds < at) return;
+                lag = Math.Max(lag, sw.Elapsed.TotalSeconds - steps[next].at);
+                var a = steps[next++].act; frameAtStep = stage.Frames;
+                try { a(); } catch (Exception ex) { Fail("步骤异常：" + ex.Message); }
             };
             drive.Start();
             Application.Run();
             drive.Stop();
             Line($"  共画了 {stage.Frames} 帧，用时 {sw.Elapsed.TotalSeconds:0.0} 秒");
-            if (stage.Frames < 100) Fail($"帧数太少（{stage.Frames}）");
+            double fps = stage.Frames / sw.Elapsed.TotalSeconds;
+            Line($"  平均 {fps:0.0} 帧/秒（{(stage.Software ? "软件渲染" : "显卡")}）");
+            if (!stage.Software && fps < 8) Fail($"帧数太少（{fps:0.0} 帧/秒）");
             stage.Dispose();
             try { notepad?.Kill(); } catch { }
         }

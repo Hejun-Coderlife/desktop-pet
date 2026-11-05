@@ -53,6 +53,7 @@ namespace Pip
         public ContextMenuStrip Menu;
 
         readonly Renderer renderer = new Renderer();
+        public bool Software => renderer.Software;
         PetScene scene;
         Outfit outfit;
         public PetWorld World;
