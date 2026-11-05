@@ -297,6 +297,24 @@ final class PetWorld {
         }
     }
 
+    // MARK: 仅供截图工具使用：直接把世界摆成某个状态
+
+    func preview(state newState: PetState,
+                 time newTime: CGFloat,
+                 feet: CGPoint? = nil,
+                 walkPhase newPhase: CGFloat = 0,
+                 stateTime newStateTime: CGFloat = 0,
+                 velocity newVelocity: CGVector = .zero,
+                 grabVelocity newGrabVelocity: CGVector = .zero) {
+        state = newState
+        time = newTime
+        walkPhase = newPhase
+        stateTime = newStateTime
+        velocity = newVelocity
+        grabVelocity = newGrabVelocity
+        if let feet { position = feet }
+    }
+
     // MARK: 给自检用的只读快照
 
     struct Snapshot {

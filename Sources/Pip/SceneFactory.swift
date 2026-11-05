@@ -85,28 +85,34 @@ enum SceneFactory {
         return node
     }
 
-    private static func shadowImage() -> NSImage {
-        let size = NSSize(width: 128, height: 48)
-        let image = NSImage(size: size)
-        image.lockFocus()
-        if let ctx = NSGraphicsContext.current?.cgContext {
-            ctx.clear(CGRect(origin: .zero, size: size))
-            let colors = [
-                NSColor(white: 0, alpha: 0.55).cgColor,
-                NSColor(white: 0, alpha: 0.30).cgColor,
-                NSColor(white: 0, alpha: 0.0).cgColor
-            ] as CFArray
-            if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
-                                         colors: colors,
-                                         locations: [0, 0.55, 1]) {
-                let center = CGPoint(x: size.width / 2, y: size.height / 2)
-                ctx.drawRadialGradient(gradient,
-                                       startCenter: center, startRadius: 1,
-                                       endCenter: center, endRadius: size.height / 2,
-                                       options: [.drawsAfterEndLocation])
-            }
+    private static func shadowImage() -> CGImage? {
+        let width = 128
+        let height = 48
+        guard let ctx = CGContext(data: nil,
+                                  width: width,
+                                  height: height,
+                                  bitsPerComponent: 8,
+                                  bytesPerRow: width * 4,
+                                  space: CGColorSpaceCreateDeviceRGB(),
+                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else {
+            return nil
         }
-        image.unlockFocus()
-        return image
+        ctx.clear(CGRect(x: 0, y: 0, width: width, height: height))
+        let colors = [
+            CGColor(red: 0, green: 0, blue: 0, alpha: 0.55),
+            CGColor(red: 0, green: 0, blue: 0, alpha: 0.28),
+            CGColor(red: 0, green: 0, blue: 0, alpha: 0.0)
+        ] as CFArray
+        guard let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                                        colors: colors,
+                                        locations: [0, 0.55, 1]) else {
+            return nil
+        }
+        let center = CGPoint(x: CGFloat(width) / 2, y: CGFloat(height) / 2)
+        ctx.drawRadialGradient(gradient,
+                               startCenter: center, startRadius: 0,
+                               endCenter: center, endRadius: CGFloat(height) / 2,
+                               options: [.drawsAfterEndLocation])
+        return ctx.makeImage()
     }
 }

@@ -93,27 +93,27 @@ final class PipRig: PetRig {
         pivot.position = SCNVector3(x, 26, 0)
         bodyGroup.addChildNode(pivot)
 
-        let leg = capsuleNode(radius: 4.6, height: 14, color: PipPalette.limb)
-        leg.position = SCNVector3(0, -11.5, 0)
+        // 胶囊顶进身体里，往下伸到脚踝，避免看起来断开
+        let leg = capsuleNode(radius: 5.0, height: 18, color: PipPalette.limb)
+        leg.position = SCNVector3(0, -12, 0)
         pivot.addChildNode(leg)
 
-        let foot = sphereNode(radius: 5.4, color: PipPalette.limb)
-        foot.scale = SCNVector3(1.0, 0.62, 1.35)
-        foot.position = SCNVector3(0, -22.2, 1.6)
+        let foot = sphereNode(radius: 5.6, color: PipPalette.limb)
+        foot.scale = SCNVector3(1.0, 0.6, 1.35)
+        foot.position = SCNVector3(0, -22.6, 1.8)
         pivot.addChildNode(foot)
     }
 
     private func buildArm(pivot: SCNNode, x: CGFloat, sign: CGFloat) {
-        pivot.position = SCNVector3(x, 49, 0)
+        pivot.position = SCNVector3(x, 48, 0)
         bodyGroup.addChildNode(pivot)
 
-        let arm = capsuleNode(radius: 4.3, height: 13, color: PipPalette.limb)
-        arm.position = SCNVector3(sign * 2.6, -9.5, 0)
-        arm.eulerAngles = SCNVector3(0, 0, -sign * 0.28)
+        let arm = capsuleNode(radius: 4.4, height: 15, color: PipPalette.limb)
+        arm.position = SCNVector3(sign * 2.4, -9.5, 0)
         pivot.addChildNode(arm)
 
-        let hand = sphereNode(radius: 4.8, color: PipPalette.limb)
-        hand.position = SCNVector3(sign * 3.4, -17.5, 0)
+        let hand = sphereNode(radius: 4.9, color: PipPalette.limb)
+        hand.position = SCNVector3(sign * 3.2, -16.5, 0)
         pivot.addChildNode(hand)
     }
 
@@ -146,7 +146,7 @@ final class PipRig: PetRig {
 
             let pupil = sphereNode(radius: 3.5, color: PipPalette.pupil)
             pupil.scale = SCNVector3(1.0, 1.0, 0.45)
-            pupil.position = SCNVector3(sign * 0.4, -0.3, 2.5)
+            pupil.position = SCNVector3(0, -0.3, 2.5)
             group.addChildNode(pupil)
 
             let shine = sphereNode(radius: 1.5, color: PipPalette.eyeWhite)
@@ -225,10 +225,8 @@ final class PipRig: PetRig {
 
     private func material(_ color: NSColor) -> SCNMaterial {
         let m = SCNMaterial()
-        m.lightingModel = .blinn
+        m.lightingModel = .lambert
         m.diffuse.contents = color
-        m.specular.contents = NSColor(white: 0.22, alpha: 1)
-        m.shininess = 0.18
         m.isDoubleSided = false
         return m
     }
