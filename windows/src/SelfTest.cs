@@ -62,6 +62,19 @@ namespace Pip
 
             Line("\n[4] 真窗口");
             LiveTest(s);
+
+            Line("\n[5] 声音");
+            foreach (Cue c in Enum.GetValues(typeof(Cue)))
+            {
+                var x = Voice.Samples(c);
+                float peak = 0; foreach (var v in x) peak = Math.Max(peak, Math.Abs(v));
+                Line($"  {c}：{x.Length / 44100.0:0.00} 秒，峰值 {peak:0.00}" + (peak > 0.99f ? "（削波）" : ""));
+                if (peak > 0.99f || peak < 0.05f) Fail($"声音 {c} 音量不对（峰值 {peak:0.00}）");
+            }
+            var wav = Voice.Wav(Voice.Samples(Cue.Sign), 0.4f);
+            File.WriteAllBytes(Path.Combine(dir, "voice-sign.wav"), wav);
+            try { WinVoice.Install(); Voice.Play(Cue.Hop, true); Line("  [通过] 播放没报错（CI 机器没声卡，听不到是正常的）"); }
+            catch (Exception e) { Fail("播放声音出错：" + e.Message); }
         }
 
         static void RenderCases(Renderer r)
@@ -134,6 +147,9 @@ namespace Pip
             stage.Start();
             var steps = new List<(double at, Action act)>();
             Process notepad = null;
+            var sw = new Stopwatch();
+            // 某一步可以要求「等到条件成立（最多 N 秒）再往下走」，等的时间会自动算进后面步骤的顺延
+            Func<bool> waitFor = null; double waitDeadline = 0;
             Win32.POINT PetScreen(double ox, double oy)
             {
                 return new Win32.POINT(s.Monitor.Left + (int)((stage.World.X + ox) * s.Scale), s.Monitor.Bottom - (int)((stage.World.Y + oy) * s.Scale));
@@ -234,6 +250,8 @@ namespace Pip
             }
             steps.Add((7.5, () => { if (stage.World.State != PetState.Grabbed) Line($"  拖到记事本上方时状态：{stage.World.State.Name()}"); }));
             steps.Add((7.6, () => { if (dragTo.X != 0) mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, UIntPtr.Zero); }));
+            // 没显卡时动作是慢放的：等它不再往下掉（最多 20 秒）再检查有没有站住
+            steps.Add((7.8, () => { waitFor = () => stage.World.State != PetState.Falling && stage.World.State != PetState.Grabbed; waitDeadline = sw.Elapsed.TotalSeconds + 20; }));
             steps.Add((9.0, () =>
             {
                 sawStanding = stage.World.OnPlatform;
@@ -258,13 +276,19 @@ namespace Pip
 
             // 每画一帧最多走一步：没显卡时一帧要大半秒，不这样的话鼠标按下/拖动/松手会挤在两帧之间，Pip 来不及反应。
             // 步骤的时间点按"已经走过的时间"往后顺延，相邻步骤之间至少隔着一帧
-            var sw = Stopwatch.StartNew();
+            sw.Restart();
             int next = 0, frameAtStep = -1;
             double lag = 0;
+            // 某一步可以要求「等到条件成立（最多 N 秒）再往下走」，等的时间算进 lag
             var drive = new Timer { Interval = 10 };
             drive.Tick += (o, e) =>
             {
                 if (next >= steps.Count || stage.Frames <= frameAtStep) return;
+                if (waitFor != null)
+                {
+                    if (!waitFor() && sw.Elapsed.TotalSeconds < waitDeadline) return;
+                    waitFor = null;
+                }
                 double at = steps[next].at + lag;
                 if (sw.Elapsed.TotalSeconds < at) return;
                 lag = Math.Max(lag, sw.Elapsed.TotalSeconds - steps[next].at);

@@ -76,6 +76,24 @@ namespace Pip
         }
     }
 
+    /// 放 Pip 的声音：winmm 异步播内存里的 WAV（同一时间只一个声音，新的会顶掉旧的）
+    static class WinVoice
+    {
+        [DllImport("winmm.dll", SetLastError = true)]
+        static extern bool PlaySound(IntPtr wav, IntPtr hmod, uint flags);
+        const uint SND_ASYNC = 0x1, SND_NODEFAULT = 0x2, SND_MEMORY = 0x4;
+        // 异步播放期间这块内存不能动：用非托管内存（托管数组会被 GC 挪走），播下一个时再释放上一个
+        static IntPtr playing = IntPtr.Zero;
+        public static void Install() => Voice.Output = wav =>
+        {
+            var mem = Marshal.AllocHGlobal(wav.Length);
+            Marshal.Copy(wav, 0, mem, wav.Length);
+            PlaySound(mem, IntPtr.Zero, SND_ASYNC | SND_NODEFAULT | SND_MEMORY);   // 会先停掉正在放的
+            if (playing != IntPtr.Zero) Marshal.FreeHGlobal(playing);
+            playing = mem;
+        };
+    }
+
     /// GDI+ 文字贴图（微软雅黑粗体；音符用 Segoe UI Symbol，emoji 用 Segoe UI Emoji 兜底）
     class GdiText : ITextRasterizer
     {

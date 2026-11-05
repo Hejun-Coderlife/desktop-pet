@@ -10,6 +10,8 @@ enum Settings {
     static var dance: Bool { get { flag("dance", true) } set { UserDefaults.standard.set(newValue, forKey: "dance") } }
     static var reminders: Bool { get { flag("reminders", true) } set { UserDefaults.standard.set(newValue, forKey: "reminders") } }
     /// 提醒间隔（分钟，按「真的在用电脑」的时间累计）
+    /// Pip 自己的音量（0 = 静音），和系统音量分开；默认偏小，别吵着人
+    static var volume: Double { get { (UserDefaults.standard.object(forKey: "volume") as? Double) ?? 0.4 } set { UserDefaults.standard.set(newValue, forKey: "volume") } }
     static var reminderMinutes: Double { get { (UserDefaults.standard.object(forKey: "reminderMinutes") as? Double) ?? 45 } set { UserDefaults.standard.set(newValue, forKey: "reminderMinutes") } }
 }
 
@@ -68,6 +70,7 @@ final class Stage {
     private var userHidden = false
     private var paused = false
     private var fullscreenHidden = false
+    private var voiceState: PetState = .idle
     private var occluded = false
     private var screenObserver: NSObjectProtocol?
     /// 跳舞时在 Pip 两边往上飘的音符（和演示视频里同一套）
@@ -297,6 +300,8 @@ final class Stage {
         feedInputs(dt: Double(dt))
         updateMouse(dt: dt)
         world.update(dt: dt)
+        // 状态也可能在鼠标事件/菜单里变，所以跟「上一次发声时的状态」比
+        if world.state != voiceState { Voice.shared.react(from: voiceState, to: world.state); voiceState = world.state }
         applyVisuals()
         updateFrameRate()
     }

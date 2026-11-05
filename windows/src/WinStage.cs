@@ -117,6 +117,7 @@ namespace Pip
             TryShowSign();
         }
 
+        PetState voiceState = PetState.Idle;
         string pendingSign;   // 被拎着/正在掉的时候到点了：先记着，落地再举牌
         void TryShowSign()
         {
@@ -143,6 +144,8 @@ namespace Pip
             UpdateMouse(dt);
             World.Update(dt);
             TryShowSign();
+            // 状态也可能在鼠标事件/菜单里变，所以跟「上一次发声时的状态」比
+            if (World.State != voiceState) { Voice.React(voiceState, World.State); voiceState = World.State; }
             Present();
             SetInterval(World.IsMoving ? 1000 / 30 : 100);
             if (now - lastTopmost > 2)

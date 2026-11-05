@@ -23,6 +23,7 @@ namespace Pip
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             Settings.Store = new RegistryStore();
+            WinVoice.Install();
             Tex.TextRasterizer = new GdiText();
 
             int si = Array.IndexOf(args, "--selftest");
@@ -109,6 +110,18 @@ namespace Pip
             Toggle("节日装扮", () => Settings.Outfits, v => { Settings.Outfits = v; stage.RefreshOutfit(); });
             Toggle("定时举牌提醒", () => Settings.Reminders, v => Settings.Reminders = v);
 
+            // Pip 自己的音量（和系统音量分开）：一个标签 + 一根滑条，松手时出一声试听
+            menu.Items.Add(new ToolStripSeparator());
+            var volLabel = new ToolStripLabel();
+            var bar = new TrackBar { Minimum = 0, Maximum = 100, TickStyle = TickStyle.None, SmallChange = 5, LargeChange = 10, Width = 200, AutoSize = false, Height = 28 };
+            void SyncVol() { bar.Value = Settings.Volume; volLabel.Text = Settings.Volume == 0 ? "Pip 的声音：静音" : $"Pip 的声音：{Settings.Volume}%"; }
+            bar.ValueChanged += (s, e) => { Settings.Volume = bar.Value; volLabel.Text = bar.Value == 0 ? "Pip 的声音：静音" : $"Pip 的声音：{bar.Value}%"; };
+            bar.MouseUp += (s, e) => Voice.Play(Cue.Hop, true);
+            bar.KeyUp += (s, e) => Voice.Play(Cue.Hop, true);
+            menu.Items.Add(volLabel);
+            menu.Items.Add(new ToolStripControlHost(bar) { AutoSize = false, Width = 210, Height = 30 });
+            menu.Items.Add(new ToolStripSeparator());
+
             var interval = new ToolStripMenuItem("提醒间隔");
             foreach (var m in new[] { 20, 30, 45, 60, 90 })
             {
@@ -133,6 +146,7 @@ namespace Pip
                 pause.Checked = stage.IsPaused;
                 pause.Text = stage.IsPaused ? "继续动画" : "暂停（停在原地不动）";
                 foreach (var t in toggles) t.item.Checked = t.get();
+                SyncVol();
                 foreach (ToolStripMenuItem it in interval.DropDownItems) it.Checked = (int)it.Tag == Settings.ReminderMinutes;
             };
 

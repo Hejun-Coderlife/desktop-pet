@@ -30,11 +30,12 @@ static class Program
     static int Main(string[] args)
     {
         string outDir = args.Length > 0 ? args[0] : "/tmp/pip-win-render";
-        if (!outDir.EndsWith(".ico")) Directory.CreateDirectory(outDir);
+        if (!outDir.EndsWith(".ico") && !outDir.EndsWith(".mactile.png")) Directory.CreateDirectory(outDir);
         Cgl.Init();
         var r = new Renderer(); r.Init();
         Console.WriteLine(r.Info);
         if (outDir.EndsWith(".ico")) { MakeIcon(r, outDir); return 0; }
+        if (outDir.EndsWith(".mactile.png")) { MakeMacTile(r, outDir); return 0; }
 
         // 网格朝向自检：每个三角形的面法线应和顶点法线同向
         CheckWinding();
@@ -107,6 +108,64 @@ static class Program
             bw.Write(pngs[i].Length); bw.Write(offset); offset += pngs[i].Length;
         }
         foreach (var p in pngs) bw.Write(p);
+    }
+
+    /// Mac 程序图标：1024 画布，824 的圆角方块（Big Sur 规范网格），天蓝渐变底 + 底部柔和投影，Pip 正面站在中间
+    static void MakeMacTile(Renderer r, string path)
+    {
+        Outfits.Override = Outfit.None;
+        var scene = new PetScene(Outfit.None);
+        var w = new PetWorld(200, 200, 0);
+        w.Preview(PetState.Idle, 0.3, 100, 4);
+        scene.Apply(w, 0.3, 0, 0);
+        scene.Shadow.Hidden = true;
+        const int N = 1024, pipPx = 700;
+        float box = 98, scale = pipPx / box;
+        var pip = new byte[pipPx * pipPx * 4];
+        var hnd = GCHandle.Alloc(pip, GCHandleType.Pinned);
+        r.Render(scene.Roots, 100 - box / 2, 0, box, box, scale, hnd.AddrOfPinnedObject());
+        hnd.Free();
+        var pipRGBA = Png.FromRender(pip, pipPx, pipPx);   // 自上而下 RGBA，非预乘
+        var img = new byte[N * N * 4];
+        float x0 = 100, y0 = 100, side = 824, rad = 185;
+        float Sd(float x, float y)   // 圆角矩形有符号距离
+        {
+            float cx = Math.Abs(x - (x0 + side / 2)) - (side / 2 - rad), cy = Math.Abs(y - (y0 + side / 2)) - (side / 2 - rad);
+            float ox = Math.Max(cx, 0), oy = Math.Max(cy, 0);
+            return (float)Math.Sqrt(ox * ox + oy * oy) + Math.Min(Math.Max(cx, cy), 0) - rad;
+        }
+        float[] top = { 0xD6 / 255f, 0xE8 / 255f, 0xFA / 255f }, bot = { 0x86 / 255f, 0xAE / 255f, 0xE6 / 255f };
+        int px0 = (N - pipPx) / 2, py0 = 140;
+        for (int y = 0; y < N; y++)
+            for (int x = 0; x < N; x++)
+            {
+                float d = Sd(x + 0.5f, y + 0.5f);
+                // 投影：方块下方 12 点处的模糊阴影
+                float ds = Sd(x + 0.5f, y + 0.5f - 12);
+                float sh = 0.28f * Math.Max(0, Math.Min(1, 1 - (ds + 4) / 28f)) ;
+                float a = Math.Max(0, Math.Min(1, 0.5f - d));
+                float t = (y - y0) / side;
+                float rr = top[0] + (bot[0] - top[0]) * t, gg = top[1] + (bot[1] - top[1]) * t, bb = top[2] + (bot[2] - top[2]) * t;
+                // 顶部一层很淡的高光
+                float hl = Math.Max(0, 1 - t * 2.2f) * 0.10f; rr += hl; gg += hl; bb += hl;
+                // 方块颜色（预乘）叠在阴影上
+                float outA = a + sh * (1 - a);
+                float R = rr * a, G = gg * a, B = bb * a;
+                // Pip 叠上去，只画在方块里
+                int sx = x - px0, sy = y - py0;
+                if (sx >= 0 && sy >= 0 && sx < pipPx && sy < pipPx && a > 0)
+                {
+                    int k = (sy * pipPx + sx) * 4;
+                    float pa = pipRGBA[k + 3] / 255f * a;
+                    R = pipRGBA[k] / 255f * pa + R * (1 - pa); G = pipRGBA[k + 1] / 255f * pa + G * (1 - pa); B = pipRGBA[k + 2] / 255f * pa + B * (1 - pa);
+                    outA = pa + outA * (1 - pa);
+                }
+                int o = (y * N + x) * 4;
+                if (outA <= 0) continue;
+                img[o] = (byte)Math.Min(255, R / outA * 255 + 0.5f); img[o + 1] = (byte)Math.Min(255, G / outA * 255 + 0.5f);
+                img[o + 2] = (byte)Math.Min(255, B / outA * 255 + 0.5f); img[o + 3] = (byte)(outA * 255 + 0.5f);
+            }
+        File.WriteAllBytes(path, Png.Encode(img, N, N));
     }
 
     static void CheckWinding()

@@ -53,6 +53,12 @@ if cliArguments.contains("--windowcheck") {
     exit(0)
 }
 
+// 声音自检：按当前音量依次放一遍所有声音，打印每个的长度/峰值，同时确认「自己出声不会被当成有音乐在放」
+if cliArguments.contains("--voicetest") {
+    Voice.shared.selfTest()
+    exit(0)
+}
+
 // 正常 GUI 模式
 let application = NSApplication.shared
 let appDelegate = AppDelegate()

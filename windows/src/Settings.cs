@@ -28,6 +28,8 @@ namespace Pip
         public static bool Reminders { get => Flag("reminders", true); set => SetFlag("reminders", value); }
         public static bool Outfits { get => Flag("outfitsEnabled", true); set => SetFlag("outfitsEnabled", value); }
         /// 提醒间隔（分钟，按「真的在用电脑」的时间累计）
+        /// Pip 自己的音量 0–100（0 = 静音），和系统音量分开；默认偏小
+        public static int Volume { get { var v = Store.Get("volume"); return v is int i && i >= 0 && i <= 100 ? i : 40; } set => Store.Set("volume", value); }
         public static int ReminderMinutes { get { var v = Store.Get("reminderMinutes"); return v is int i && i > 0 ? i : 45; } set => Store.Set("reminderMinutes", value); }
     }
 }

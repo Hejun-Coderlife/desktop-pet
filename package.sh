@@ -21,6 +21,7 @@ mkdir -p "$DIST/$APP_NAME.app/Contents/MacOS"
 mkdir -p "$DIST/$APP_NAME.app/Contents/Resources"
 cp "$BIN" "$DIST/$APP_NAME.app/Contents/MacOS/$APP_NAME"
 cp "Resources/Info.plist" "$DIST/$APP_NAME.app/Contents/Info.plist"
+cp "Resources/AppIcon.icns" "$DIST/$APP_NAME.app/Contents/Resources/AppIcon.icns"
 chmod +x "$DIST/$APP_NAME.app/Contents/MacOS/$APP_NAME"
 
 # Info.plist 校验：LSUIElement 必须为 true（不显示程序坞图标）

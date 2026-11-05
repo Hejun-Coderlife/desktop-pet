@@ -37,6 +37,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             item.representedObject = key
             menu.addItem(item)
         }
+        menu.addItem(.separator())
+        menu.addItem(makeVolumeItem())
+
+        menu.addItem(.separator())
         let interval = NSMenuItem(title: "提醒间隔", action: nil, keyEquivalent: "")
         let sub = NSMenu()
         for minutes in [20, 30, 45, 60, 90] {
@@ -63,8 +67,43 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     var isReady: Bool { statusItem.button != nil }
 
+    // MARK: 音量（Pip 自己的，和系统音量分开）
+
+    private let volumeLabel = NSTextField(labelWithString: "")
+    private let volumeSlider = NSSlider(value: 0, minValue: 0, maxValue: 100, target: nil, action: nil)
+
+    private func makeVolumeItem() -> NSMenuItem {
+        let view = NSView(frame: NSRect(x: 0, y: 0, width: 240, height: 48))
+        volumeLabel.frame = NSRect(x: 20, y: 26, width: 210, height: 17)
+        volumeLabel.font = .menuFont(ofSize: 0)
+        volumeSlider.frame = NSRect(x: 18, y: 4, width: 206, height: 22)
+        volumeSlider.target = self
+        volumeSlider.action = #selector(volumeChanged(_:))
+        volumeSlider.isContinuous = true
+        view.addSubview(volumeLabel)
+        view.addSubview(volumeSlider)
+        let item = NSMenuItem()
+        item.view = view
+        syncVolume()
+        return item
+    }
+
+    private func syncVolume() {
+        let v = Int((Settings.volume * 100).rounded())
+        volumeSlider.integerValue = v
+        volumeLabel.stringValue = v == 0 ? "Pip 的声音：静音" : "Pip 的声音：\(v)%"
+    }
+
+    @objc private func volumeChanged(_ sender: NSSlider) {
+        Settings.volume = sender.doubleValue / 100
+        syncVolume()
+        // 松手时出一声，让人听到现在多大声
+        if NSApp.currentEvent?.type == .leftMouseUp { Voice.shared.play(.hop) }
+    }
+
     func menuNeedsUpdate(_ menu: NSMenu) {
         guard let stage else { return }
+        syncVolume()
         menu.item(at: 0)?.title = stage.isUserHidden ? "显示小人" : "隐藏小人"
         if let pauseItem = menu.item(at: 1) {
             pauseItem.state = stage.isPaused ? .on : .off
