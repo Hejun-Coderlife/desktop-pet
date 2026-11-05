@@ -37,8 +37,10 @@ if cliArguments.contains("--windowcheck") {
     let application = NSApplication.shared
     application.setActivationPolicy(.accessory)
     let stage = Stage()
+    let menuBar = MenuBarController(stage: stage)
     print("Pip 窗口配置自检（不会显示窗口）")
     print(stage.debugSummary())
+    print("菜单栏图标      = \(menuBar.isReady ? "创建成功（进程退出后消失）" : "创建失败")")
     exit(0)
 }
 
