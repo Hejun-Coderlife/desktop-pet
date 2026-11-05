@@ -62,6 +62,8 @@ final class Stage {
     private var fullscreenHidden = false
     private var occluded = false
     private var screenObserver: NSObjectProtocol?
+    /// 跳舞时在 Pip 两边往上飘的音符（和演示视频里同一套）
+    private var notes: [SCNNode] = []
 
     /// 眼神方向（-1…1），逐帧平滑逼近鼠标方向
     private var gaze = CGPoint.zero
@@ -128,6 +130,15 @@ final class Stage {
         world = PetWorld(size: frame.size, groundY: groundY, seed: 0x9E37_79B9)
 
         sceneView.stage = self
+
+        for (i, sym) in ["♪", "♫", "♪", "♬"].enumerated() {
+            let img = PipRig.textImage(sym, fontSize: 90, color: NSColor.hex([0xE88AA0, 0x8AA8E8, 0xE8B86A, 0x9AD0A8][i]),
+                                       size: CGSize(width: 110, height: 110))
+            let n = Demo.plane(img, w: 30, h: 30, at: SCNVector3(0, 0, 60), order: 5)
+            n.isHidden = true
+            scene.rootNode.addChildNode(n)
+            notes.append(n)
+        }
     }
 
     // MARK: 生命周期
@@ -511,6 +522,18 @@ final class Stage {
         shadowNode.position = SCNVector3(world.position.x + (lying ? world.facing * 32 : 0), world.groundY + 1.5, 1)
         shadowNode.scale = SCNVector3(scale * (lying ? 1.9 : 1), scale, scale)
         shadowNode.opacity = 1 - 0.75 * t
+
+        let dancing = world.state == .dance
+        let now = CACurrentMediaTime()
+        for (i, n) in notes.enumerated() {
+            n.isHidden = !dancing
+            guard dancing else { continue }
+            let ph = (now * 0.6 + Double(i) / 4).truncatingRemainder(dividingBy: 1)
+            let side: CGFloat = i % 2 == 0 ? -1 : 1
+            n.position = SCNVector3(world.position.x + side * (46 + CGFloat(ph) * 14), world.position.y + 70 + CGFloat(ph) * 70, 60)
+            n.opacity = CGFloat(sin(ph * .pi))
+            n.eulerAngles.z = CGFloat(sin(now * 3 + Double(i))) * 0.3
+        }
     }
 }
 
