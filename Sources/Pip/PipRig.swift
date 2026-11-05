@@ -43,8 +43,8 @@ final class PipRig: PetRig {
 
     /// 脸的椭圆（宽 38、高 33），不是正圆
     /// 脸：偏大的圆角方形（超椭圆），占头部大半——参考原版，下巴干净、不被毛盖住
-    private let faceWidth: CGFloat = 46
-    private let faceHeight: CGFloat = 35
+    private let faceWidth: CGFloat = 42
+    private let faceHeight: CGFloat = 34
     /// 脸那张软片的深度：比肚子最鼓的地方再靠前一点，否则下半张脸会被绒毛吃掉
     /// 脸中心在身体上的高度。脸是贴着身体曲面长的一块（不是浮在前面的平面片），侧身时不会戳出轮廓
     private let faceCenterY: CGFloat = 60
@@ -72,7 +72,7 @@ final class PipRig: PetRig {
     private let faceBulge: CGFloat = 3.6
     private func faceLift(atX x: CGFloat, y: CGFloat) -> CGFloat {
         let dx = abs(x / (faceWidth / 2)), dy = abs((y - faceCenterY) / (faceHeight / 2))
-        let r = pow(pow(dx, 2.15) + pow(dy, 2.15), 1 / 2.15)
+        let r = pow(pow(dx, 2.7) + pow(dy, 2.7), 1 / 2.7)
         let t = max(0, 1 - r * r)
         return faceLift + faceBulge * sqrt(t)
     }
@@ -91,8 +91,8 @@ final class PipRig: PetRig {
     private let eyeGroupL = SCNNode()
     private let eyeGroupR = SCNNode()
     /// 眼珠的原始位置，眼神偏移以它为基准
-    private let eyeBaseL = CGPoint(x: -9.4, y: 61.0)
-    private let eyeBaseR = CGPoint(x: 9.4, y: 61.0)
+    private let eyeBaseL = CGPoint(x: -10.6, y: 61.0)
+    private let eyeBaseR = CGPoint(x: 10.6, y: 61.0)
     /// 眼神方向（-1…1，已在 Stage 里按朝向翻过），由 setGaze 写入、apply 里统一生效
     private var gaze = CGPoint.zero
     private let armPivotL = SCNNode()
@@ -136,7 +136,7 @@ final class PipRig: PetRig {
         let body = Lathe.node(profile: Self.bodyProfile, segments: 96, material: furMaterial)
         // 毛的粗细要接近 1 个屏幕点：周长约 188 点 / (2.8 × 128) ≈ 0.5 点一根（0.9 太粗像刺猬，0.08 太细会闪）。
         // 再细就会小于一个像素，每帧采到不同的毛 → 闪烁噪点（实测过）
-        Fur.apply(to: body, colors: furColors, length: 5.4, tile: CGSize(width: 4.6, height: 2.0), layers: 20,
+        Fur.apply(to: body, colors: furColors, length: 3.3, tile: CGSize(width: 9, height: 3.9), layers: 20,
                   faceHole: SCNVector4(0, faceCenterY, faceWidth / 2, faceHeight / 2))
         bodyGroup.addChildNode(body)
 
@@ -238,7 +238,7 @@ final class PipRig: PetRig {
         let foot = sphereNode(radius: 5.6, material: furMaterial)
         foot.scale = SCNVector3(1.05, 0.68, 1.25)
         foot.position = SCNVector3(0, -8.4, 1.6)
-        Fur.apply(to: foot, colors: furColors, length: 1.6, tile: CGSize(width: 0.6, height: 0.3))
+        Fur.apply(to: foot, colors: furColors, length: 1.3, tile: CGSize(width: 1.2, height: 0.6))
         pivot.addChildNode(foot)
     }
 
@@ -250,7 +250,7 @@ final class PipRig: PetRig {
         let arm = capsuleNode(radius: 6.2, height: 17, material: furMaterial)
         arm.position = SCNVector3(sign * 4.0, -6.0, 0)
         arm.eulerAngles = SCNVector3(0, 0, sign * 0.45)
-        Fur.apply(to: arm, colors: furColors, length: 3.0, tile: CGSize(width: 0.8, height: 0.5), layers: 16)
+        Fur.apply(to: arm, colors: furColors, length: 2.2, tile: CGSize(width: 1.6, height: 1.0), layers: 16)
         pivot.addChildNode(arm)
     }
 
@@ -267,7 +267,7 @@ final class PipRig: PetRig {
 
         // 眼睛（小椭圆 + 冷光）
         for (group, sign) in [(eyeGroupL, CGFloat(-1)), (eyeGroupR, CGFloat(1))] {
-            stick(group, x: sign * 9.4, y: 61, lift: faceLift(atX: sign * 9.4, y: 61) + 0.7)
+            stick(group, x: sign * 10.6, y: 61, lift: faceLift(atX: sign * 10.6, y: 61) + 0.7)
 
             let eyeMat = makeSmoothMaterial(PipPalette.eye)
             eyeMat.lightingModel = .blinn
@@ -409,7 +409,7 @@ final class PipRig: PetRig {
                 let nx = (Double(x) + 0.5) / Double(size) * 2 - 1
                 let ny = (Double(y) + 0.5) / Double(size) * 2 - 1
                 // 超椭圆（指数 2.5）：圆角方形的脸，比正椭圆饱满
-                let pw = 2.15   // 接近正椭圆（原版是横向的椭圆脸，不是圆角方形）
+                let pw = 2.7    // 横向的圆头椭圆：比正椭圆两头更圆（正椭圆贴在弧面上两头会显尖）
                 let rho = pow(pow(abs(nx), pw) + pow(abs(ny), pw), 1 / pw)
 
                 var alpha = 1.0
@@ -556,7 +556,7 @@ final class PipRig: PetRig {
         plane.materials = [material]
 
         let node = SCNNode(geometry: plane)
-        stick(node, x: sign * 11.5, y: 55.5, lift: faceLift(atX: sign * 11.5, y: 55.5) + 0.2)
+        stick(node, x: sign * 12.6, y: 55.5, lift: faceLift(atX: sign * 12.6, y: 55.5) + 0.2)
         return node
     }
 

@@ -54,7 +54,7 @@ enum Fur {
     out.furModelPos = _geometry.position.xyz;
     float off = furH * furLen;
     _geometry.position.xyz += _geometry.normal * off;
-    _geometry.position.y -= furH * furH * furLen * 0.45;
+    _geometry.position.y -= furH * furH * furLen * 0.12;   // 少下垂：垂太多像淋湿
     """
 
     private static let surfaceModifier = """
@@ -68,13 +68,13 @@ enum Fur {
     // 脸部禁区：光滑的脸贴在身体曲面上，这一块不长毛（四周的毛自然高出一截，像脸嵌在毛里）
     if (furH > 0.0 && faceHole.z > 0.0 && in.furModelPos.z > 0.0) {
         float2 d = abs((in.furModelPos.xy - faceHole.xy) / faceHole.zw);
-        float r = pow(pow(d.x, 2.15) + pow(d.y, 2.15), 1.0 / 2.15);
+        float r = pow(pow(d.x, 2.7) + pow(d.y, 2.7), 1.0 / 2.7);
         if (r < 0.96) { discard_fragment(); }
     }
     float strand = _surface.emission.r;
     if (furH > 0.0 && strand < furH) { discard_fragment(); }
     float3 c = mix(furRoot, furTip, furH * 0.9 + strand * 0.04);
-    c *= mix(0.82, 1.0, sqrt(furH));
+    c *= mix(0.9, 1.0, sqrt(furH));   // 根部阴影浅一点，缝隙不发黑
     _surface.diffuse = float4(c, 1.0);
     float3 n = normalize(_surface.normal);
     float3 v = normalize(_surface.view);
@@ -122,7 +122,7 @@ enum Fur {
         for i in 0..<(size * size) {
             seed = seed &* 6364136223846793005 &+ 1442695040888963407
             let r = Double((seed >> 33) & 0xFFFFFF) / Double(0xFFFFFF)
-            px[i] = UInt8(min(255, pow(r, 0.75) * 255))
+            px[i] = UInt8(min(255, pow(r, 0.5) * 255))   // 更多毛长到外层 → 外层也密，不结缕
         }
         guard let provider = CGDataProvider(data: Data(px) as CFData) else { return nil }
         return CGImage(width: size, height: size, bitsPerComponent: 8, bitsPerPixel: 8, bytesPerRow: size,
