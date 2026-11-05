@@ -38,6 +38,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         statusItem.menu = menu
     }
 
+    var isReady: Bool { statusItem.button != nil }
+
     func menuNeedsUpdate(_ menu: NSMenu) {
         guard let stage else { return }
         menu.item(at: 0)?.title = stage.isUserHidden ? "显示小人" : "隐藏小人"

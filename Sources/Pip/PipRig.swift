@@ -78,8 +78,8 @@ final class PipRig: PetRig {
         bodyGroup.addChildNode(belly)
 
         // 腿
-        buildLeg(pivot: legPivotL, x: -9.5)
-        buildLeg(pivot: legPivotR, x: 9.5)
+        buildLeg(pivot: legPivotL, x: -8.5)
+        buildLeg(pivot: legPivotR, x: 8.5)
 
         // 手
         buildArm(pivot: armPivotL, x: -19.5, sign: -1)
@@ -94,8 +94,8 @@ final class PipRig: PetRig {
         bodyGroup.addChildNode(pivot)
 
         // 胶囊顶进身体里，往下伸到脚踝，避免看起来断开
-        let leg = capsuleNode(radius: 5.4, height: 16, color: PipPalette.limb)
-        leg.position = SCNVector3(0, -10, 0)
+        let leg = capsuleNode(radius: 5.4, height: 18, color: PipPalette.limb)
+        leg.position = SCNVector3(0, -11.5, 0)
         pivot.addChildNode(leg)
 
         let foot = sphereNode(radius: 5.8, color: PipPalette.limb)
