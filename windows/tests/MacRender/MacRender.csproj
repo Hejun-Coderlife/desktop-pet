@@ -9,6 +9,6 @@
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="../../src/Mathx.cs;../../src/Mesh.cs;../../src/Textures.cs;../../src/Rig.cs;../../src/World.cs;../../src/Renderer.cs;../../src/GL.cs;../../src/Settings.cs;../../src/Scene.cs" />
+    <Compile Include="../../src/Mathx.cs;../../src/Mesh.cs;../../src/Textures.cs;../../src/Rig.cs;../../src/World.cs;../../src/Renderer.cs;../../src/GL.cs;../../src/Settings.cs;../../src/Scene.cs;../../src/Png.cs;../../src/WorldTests.cs" />
   </ItemGroup>
 </Project>

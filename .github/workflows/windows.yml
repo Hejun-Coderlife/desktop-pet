@@ -1,0 +1,55 @@
+# Windows 版：编译 Pip.exe → 在 runner 上真机自检（状态机、离屏渲染、真窗口截屏、模拟鼠标拎起来扔、站到记事本窗口上）
+# runner 没有显卡，自检时把 Mesa 的软件 OpenGL（llvmpipe）放在 exe 旁边；发给用户的 Pip.exe 用电脑自己的显卡驱动
+name: Windows
+
+on:
+  push:
+    paths: ["windows/**", ".github/workflows/windows.yml"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: dotnet build windows/Pip.csproj -c Release
+
+      - name: Mesa (software OpenGL for the self-test only)
+        run: |
+          $rel = Invoke-RestMethod "https://api.github.com/repos/pal1000/mesa-dist-win/releases/latest" -Headers @{ Authorization = "Bearer ${{ github.token }}" }
+          $asset = $rel.assets | Where-Object { $_.name -match '^mesa3d-.*-release-msvc\.7z$' } | Select-Object -First 1
+          Write-Host "mesa: $($asset.name)"
+          Invoke-WebRequest $asset.browser_download_url -OutFile mesa.7z
+          7z x mesa.7z -omesa | Out-Null
+          New-Item -ItemType Directory -Force test | Out-Null
+          Copy-Item windows/bin/Release/net48/Pip.exe test/
+          Copy-Item mesa/x64/*.dll test/
+          Get-ChildItem test | Format-Table Name, Length
+
+      - name: Self-test
+        run: |
+          $env:GALLIUM_DRIVER = "llvmpipe"
+          $p = Start-Process -FilePath test/Pip.exe -ArgumentList "--selftest", "$PWD/selftest" -PassThru
+          if (-not $p.WaitForExit(240000)) { $p.Kill(); Write-Host "self-test timed out" }
+          if (Test-Path selftest/report.txt) { Get-Content selftest/report.txt -Encoding UTF8 } else { Write-Host "no report" }
+          Write-Host "exit code: $($p.ExitCode)"
+          if ($p.ExitCode -ne 0) { exit 1 }
+
+      - name: Upload self-test output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selftest
+          path: selftest
+
+      - name: Upload Pip.exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pip-Windows-x64
+          path: windows/bin/Release/net48/Pip.exe

@@ -1,7 +1,6 @@
 // Mac 上的渲染测试：CGL 离屏上下文 → 和 Windows 同一份 Renderer → 各状态出一张 PNG（拼成一张对照图）
 using System;
 using System.IO;
-using System.IO.Compression;
 using System.Runtime.InteropServices;
 using Pip;
 
@@ -26,58 +25,23 @@ static class Cgl
     }
 }
 
-static class Png
-{
-    static uint[] crcTable;
-    static uint Crc(byte[] b, int off, int len)
-    {
-        if (crcTable == null) { crcTable = new uint[256]; for (uint n = 0; n < 256; n++) { uint c = n; for (int k = 0; k < 8; k++) c = (c & 1) != 0 ? 0xEDB88320 ^ (c >> 1) : c >> 1; crcTable[n] = c; } }
-        uint crc = 0xFFFFFFFF; for (int i = off; i < off + len; i++) crc = crcTable[(crc ^ b[i]) & 0xFF] ^ (crc >> 8); return crc ^ 0xFFFFFFFF;
-    }
-    static void Chunk(Stream s, string type, byte[] data)
-    {
-        var len = BitConverter.GetBytes(data.Length); Array.Reverse(len); s.Write(len, 0, 4);
-        var buf = new byte[4 + data.Length]; System.Text.Encoding.ASCII.GetBytes(type).CopyTo(buf, 0); data.CopyTo(buf, 4);
-        s.Write(buf, 0, buf.Length);
-        var crc = BitConverter.GetBytes(Crc(buf, 0, buf.Length)); Array.Reverse(crc); s.Write(crc, 0, 4);
-    }
-    /// bgra：自下而上、预乘 alpha → 存成普通 RGBA PNG
-    public static void Save(string path, byte[] bgra, int w, int h)
-    {
-        var raw = new MemoryStream();
-        for (int y = h - 1; y >= 0; y--)
-        {
-            raw.WriteByte(0);
-            for (int x = 0; x < w; x++)
-            {
-                int i = (y * w + x) * 4; byte a = bgra[i + 3];
-                byte un(byte c) => a == 0 ? (byte)0 : (byte)Math.Min(255, c * 255 / a);
-                raw.WriteByte(un(bgra[i + 2])); raw.WriteByte(un(bgra[i + 1])); raw.WriteByte(un(bgra[i])); raw.WriteByte(a);
-            }
-        }
-        var z = new MemoryStream();
-        using (var zs = new ZLibStream(z, CompressionLevel.Optimal, true)) { raw.Position = 0; raw.CopyTo(zs); }
-        using var f = File.Create(path);
-        f.Write(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 });
-        var ihdr = new byte[13];
-        void be(int v, int o) { ihdr[o] = (byte)(v >> 24); ihdr[o + 1] = (byte)(v >> 16); ihdr[o + 2] = (byte)(v >> 8); ihdr[o + 3] = (byte)v; }
-        be(w, 0); be(h, 4); ihdr[8] = 8; ihdr[9] = 6;
-        Chunk(f, "IHDR", ihdr); Chunk(f, "IDAT", z.ToArray()); Chunk(f, "IEND", new byte[0]);
-    }
-}
-
 static class Program
 {
     static int Main(string[] args)
     {
         string outDir = args.Length > 0 ? args[0] : "/tmp/pip-win-render";
-        Directory.CreateDirectory(outDir);
+        if (!outDir.EndsWith(".ico")) Directory.CreateDirectory(outDir);
         Cgl.Init();
         var r = new Renderer(); r.Init();
         Console.WriteLine(r.Info);
+        if (outDir.EndsWith(".ico")) { MakeIcon(r, outDir); return 0; }
 
         // 网格朝向自检：每个三角形的面法线应和顶点法线同向
         CheckWinding();
+        var log = new System.Text.StringBuilder();
+        bool ok = WorldTests.Run(log);
+        Console.Write(log.ToString());
+        if (!ok) return 1;
 
         var cases = new (string name, PetState s, double t, double phase, double st, string outfit)[]
         {
@@ -104,10 +68,45 @@ static class Program
             var hnd = GCHandle.Alloc(buf, GCHandleType.Pinned);
             r.Render(scene.Roots, 0, 0, W, H, scale, hnd.AddrOfPinnedObject());
             hnd.Free();
-            Png.Save(Path.Combine(outDir, c.name + ".png"), buf, pw, ph);
+            Png.SaveRender(Path.Combine(outDir, c.name + ".png"), buf, pw, ph);
             Console.WriteLine($"{c.name}: err=0x{GL.GetError():X}");
         }
         return 0;
+    }
+
+    /// 程序图标：Pip 正面全身，透明底；ICO 里放 256/64/48/32/16 五张 PNG
+    static void MakeIcon(Renderer r, string path)
+    {
+        Outfits.Override = Outfit.None;
+        var scene = new PetScene(Outfit.None);
+        var w = new PetWorld(200, 200, 0);
+        w.Preview(PetState.Idle, 0.3, 100, 4);
+        scene.Apply(w, 0.3, 0, 0);
+        scene.Shadow.Hidden = true;
+        var sizes = new[] { 256, 64, 48, 32, 16 };
+        var pngs = new System.Collections.Generic.List<byte[]>();
+        foreach (var px in sizes)
+        {
+            float box = 98;   // 取景：脚底到头顶约 92 点，左右含手臂约 80 点
+            float scale = px / box;
+            var buf = new byte[px * px * 4];
+            var hnd = GCHandle.Alloc(buf, GCHandleType.Pinned);
+            r.Render(scene.Roots, 100 - box / 2, 0, box, box, scale, hnd.AddrOfPinnedObject());
+            hnd.Free();
+            pngs.Add(Png.Encode(Png.FromRender(buf, px, px), px, px));
+            if (px == 256) File.WriteAllBytes(Path.ChangeExtension(path, ".png"), pngs[pngs.Count - 1]);
+        }
+        using var f = File.Create(path);
+        var bw = new BinaryWriter(f);
+        bw.Write((short)0); bw.Write((short)1); bw.Write((short)sizes.Length);
+        int offset = 6 + 16 * sizes.Length;
+        for (int i = 0; i < sizes.Length; i++)
+        {
+            bw.Write((byte)(sizes[i] >= 256 ? 0 : sizes[i])); bw.Write((byte)(sizes[i] >= 256 ? 0 : sizes[i]));
+            bw.Write((byte)0); bw.Write((byte)0); bw.Write((short)1); bw.Write((short)32);
+            bw.Write(pngs[i].Length); bw.Write(offset); offset += pngs[i].Length;
+        }
+        foreach (var p in pngs) bw.Write(p);
     }
 
     static void CheckWinding()

@@ -7,3 +7,7 @@ video/frames/
 video/*.mp4
 video/assets/
 .build-x86/
+windows/bin/
+windows/obj/
+windows/tests/MacRender/bin/
+windows/tests/MacRender/obj/
