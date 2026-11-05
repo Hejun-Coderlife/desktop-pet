@@ -69,8 +69,8 @@ final class PetWorld {
     static let landingDuration: CGFloat = 0.42  // 落地动作时长
 
     // 角色尺寸（点）
-    let halfWidth: CGFloat = 33
-    let characterHeight: CGFloat = 96
+    let halfWidth: CGFloat = 27
+    let characterHeight: CGFloat = 92
 
     // 环境
     private(set) var size: CGSize

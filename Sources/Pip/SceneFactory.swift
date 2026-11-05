@@ -57,6 +57,16 @@ enum SceneFactory {
         fillNode.eulerAngles = SCNVector3(0.35, 0.9, 0)
         scene.rootNode.addChildNode(fillNode)
 
+        // 轮廓光：从右后方打，勾出绒边
+        let rim = SCNLight()
+        rim.type = .directional
+        rim.color = NSColor(white: 1.0, alpha: 1)
+        rim.intensity = 190
+        let rimNode = SCNNode()
+        rimNode.light = rim
+        rimNode.eulerAngles = SCNVector3(-0.2, 2.5, 0)
+        scene.rootNode.addChildNode(rimNode)
+
         let rig = PipRig()
         scene.rootNode.addChildNode(rig.root)
 
@@ -69,7 +79,7 @@ enum SceneFactory {
     // MARK: 脚底接触阴影（竖直面片 + 径向渐变，正交正面看就是椭圆）
 
     static func makeShadowNode() -> SCNNode {
-        let plane = SCNPlane(width: 64, height: 22)
+        let plane = SCNPlane(width: 54, height: 19)
         let material = SCNMaterial()
         material.lightingModel = .constant
         material.diffuse.contents = shadowImage()
