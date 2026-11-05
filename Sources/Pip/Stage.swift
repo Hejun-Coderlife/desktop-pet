@@ -27,15 +27,15 @@ final class PetSceneView: SCNView {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
     override func mouseDown(with event: NSEvent) {
-        stage?.petMouseDown(at: convert(event.locationInWindow, from: nil))
+        stage?.petMouseDown()
     }
 
     override func mouseDragged(with event: NSEvent) {
-        stage?.petMouseDragged(at: convert(event.locationInWindow, from: nil))
+        stage?.petMouseDragged()
     }
 
     override func mouseUp(with event: NSEvent) {
-        stage?.petMouseUp(at: convert(event.locationInWindow, from: nil))
+        stage?.petMouseUp()
     }
 }
 
@@ -93,7 +93,7 @@ final class Stage {
         rig = built.rig
         shadowNode = built.shadow
 
-        sceneView = PetSceneView(frame: CGRect(origin: .zero, size: frame.size), options: nil)
+        sceneView = PetSceneView(frame: CGRect(origin: .zero, size: Stage.boxSize), options: nil)
         sceneView.scene = scene
         sceneView.pointOfView = cameraNode
         sceneView.backgroundColor = .clear
@@ -107,7 +107,7 @@ final class Stage {
         sceneView.allowsCameraControl = false
         sceneView.autoenablesDefaultLighting = false
 
-        panel = PetPanel(contentRect: frame,
+        panel = PetPanel(contentRect: CGRect(origin: frame.origin, size: Stage.boxSize),
                          styleMask: [.borderless, .nonactivatingPanel],
                          backing: .buffered,
                          defer: false)
@@ -124,7 +124,6 @@ final class Stage {
         panel.hidesOnDeactivate = false
         panel.acceptsMouseMovedEvents = false
         panel.contentView = sceneView
-        panel.setFrame(frame, display: true)
 
         world = PetWorld(size: frame.size, groundY: groundY, seed: 0x9E37_79B9)
 
@@ -317,10 +316,9 @@ final class Stage {
 
         if screen !== currentScreen || frame != currentScreen.frame {
             currentScreen = screen
-            panel.setFrame(frame, display: true)
-            sceneView.frame = CGRect(origin: .zero, size: frame.size)
             world.setGeometry(size: frame.size, groundY: groundY)
-            updateCamera(viewportSize: frame.size)
+            boxOrigin = CGPoint(x: -1, y: -1)
+            layoutBox()
         } else if abs(groundY - world.groundY) > 0.5 {
             // 程序坞隐藏 / 换边 / 改大小
             world.setGeometry(size: frame.size, groundY: groundY)
@@ -351,10 +349,29 @@ final class Stage {
 
     // MARK: 鼠标
 
+    /// 鼠标在「舞台坐标」里的位置（主屏左下为原点，和 PetWorld 一致；窗口本身只是跟着 Pip 走的小框）
     private func eventPoint() -> CGPoint {
-        let screenPoint = NSEvent.mouseLocation
-        let windowPoint = panel.convertPoint(fromScreen: screenPoint)
-        return sceneView.convert(windowPoint, from: nil)
+        let p = NSEvent.mouseLocation
+        return CGPoint(x: p.x - currentScreen.frame.minX, y: p.y - currentScreen.frame.minY)
+    }
+
+    /// 窗口不再铺满全屏（全屏透明窗口会被截图的「选窗口」模式选中，截出一张空图；调度中心里也有个空框），
+    /// 而是一个跟着 Pip 走的小框。场景坐标不变，相机对准小框。
+    static let boxSize = CGSize(width: 320, height: 300)
+    private var boxOrigin = CGPoint(x: -1, y: -1)
+
+    private func layoutBox() {
+        let b = Self.boxSize
+        let size = currentScreen.frame.size
+        var o = CGPoint(x: world.position.x - b.width / 2, y: world.position.y - 46)
+        o.x = min(max(o.x, 0), max(0, size.width - b.width))
+        o.y = min(max(o.y, 0), max(0, size.height - b.height))
+        o = CGPoint(x: o.x.rounded(), y: o.y.rounded())
+        guard o != boxOrigin else { return }
+        boxOrigin = o
+        panel.setFrameOrigin(CGPoint(x: o.x + currentScreen.frame.minX, y: o.y + currentScreen.frame.minY))
+        cameraNode.position = SCNVector3(o.x + b.width / 2, o.y + b.height / 2, 1200)
+        cameraNode.camera?.orthographicScale = Double(b.height / 2)
     }
 
     /// 小人的点击区域（窗口/视图坐标，1:1 点）
@@ -453,7 +470,8 @@ final class Stage {
         NSCursor.arrow.set()
     }
 
-    func petMouseDown(at point: CGPoint) {
+    func petMouseDown() {
+        let point = eventPoint()
         guard !paused, !userHidden, !fullscreenHidden, !occluded else { return }
         guard petRect().insetBy(dx: -6, dy: -6).contains(point) else { return }
         downTime = CACurrentMediaTime()
@@ -462,12 +480,14 @@ final class Stage {
         panel.ignoresMouseEvents = false
     }
 
-    func petMouseDragged(at point: CGPoint) {
+    func petMouseDragged() {
+        let point = eventPoint()
         guard world.state == .grabbed else { return }
         world.drag(to: point)
     }
 
-    func petMouseUp(at point: CGPoint) {
+    func petMouseUp() {
+        let point = eventPoint()
         guard world.state == .grabbed else { return }
         // 按下就松开、几乎没拖动 = 点了一下，不是拎
         if CACurrentMediaTime() - downTime < 0.25 && hypot(point.x - downPoint.x, point.y - downPoint.y) < 5 {
@@ -481,6 +501,7 @@ final class Stage {
     // MARK: 渲染
 
     private func applyVisuals() {
+        layoutBox()
         rig.apply(PetAnimator.pose(for: world))
 
         let lift = max(0, world.position.y - world.groundY)
