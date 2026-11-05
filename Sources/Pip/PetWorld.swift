@@ -115,8 +115,13 @@ final class PetWorld {
     /// 被摸的舒服程度 0…1
     private(set) var happy: CGFloat = 0
     private(set) var signText: String?
+    /// 自己往上跳的目标：最前面那个窗口
     private(set) var platform: Platform?
-    private(set) var onPlatform = false
+    /// 所有能站的窗口顶边（被拎着扔下来时，落到哪个上面就站哪个）
+    private(set) var platforms: [Platform] = []
+    /// 现在脚下踩着的那个
+    private(set) var standing: Platform?
+    var onPlatform: Bool { standing != nil }
 
     // 来自外界的输入（Stage 每帧写入）
     var idleSeconds: Double = 0
@@ -126,9 +131,9 @@ final class PetWorld {
     var attentionX: CGFloat?
 
     /// 当前脚下的高度：站在窗口上就是窗口顶边，否则是程序坞上沿
-    var supportY: CGFloat { onPlatform ? (platform?.y ?? groundY) : groundY }
-    private var supportMinX: CGFloat { onPlatform ? max(minX, (platform?.x0 ?? 0) + halfWidth * 0.6) : minX }
-    private var supportMaxX: CGFloat { onPlatform ? min(maxX, (platform?.x1 ?? 0) - halfWidth * 0.6) : maxX }
+    var supportY: CGFloat { standing?.y ?? groundY }
+    private var supportMinX: CGFloat { standing.map { max(minX, $0.x0 + halfWidth * 0.6) } ?? minX }
+    private var supportMaxX: CGFloat { standing.map { min(maxX, $0.x1 - halfWidth * 0.6) } ?? maxX }
 
     // 内部
     private var grabOffset: CGVector = .zero
@@ -264,7 +269,7 @@ final class PetWorld {
         stateTime = 0
         startled = true
         velocity = CGVector(dx: 0, dy: 720)
-        onPlatform = false   // 落回来时会重新踩上同一个平台
+        standing = nil   // 落回来时会重新踩上同一个平台
     }
 
     /// 按下马上松开 = 点了一下（不是拎）：举着牌就收牌，睡着就醒，否则吓一跳
@@ -286,7 +291,7 @@ final class PetWorld {
 
     private func beginWanderKeepingHeight() {
         // 被拎起那一下把 onPlatform 清了：如果脚下正好是平台，就当还站在上面
-        if let p = platform, abs(position.y - p.y) < 2, position.x >= p.x0, position.x <= p.x1 { onPlatform = true }
+        standing = platforms.first { abs(position.y - $0.y) < 2 && position.x >= $0.x0 && position.x <= $0.x1 }
         beginWander()
     }
 
@@ -296,22 +301,28 @@ final class PetWorld {
         enter(.sign)
     }
 
-    /// 最前面窗口的顶边（nil = 没有合适的窗口）。同一个窗口挪了就跟着挪，换了/没了就掉下去。
+    /// 最前面窗口的顶边：只用来决定「自己往上跳」跳到哪
     func setPlatform(_ newPlatform: Platform?) {
-        let old = platform
         platform = climbEnabled ? newPlatform : nil
-        guard onPlatform else { return }
-        guard let p = platform, let o = old, p.id == o.id else { dropFromPlatform(); return }
+    }
+
+    /// 所有能站的窗口顶边。脚下那个窗口挪了就跟着挪；窗口没了、或顶边被别的窗口盖住到脚下，就掉下去。
+    func setPlatforms(_ list: [Platform]) {
+        platforms = climbEnabled ? list : []
+        guard let o = standing else { return }
+        guard let p = platforms.first(where: { $0.id == o.id }) else { dropFromPlatform(); return }
         if p != o {
-            position.x += p.x0 - o.x0
-            let centerOK = position.x >= p.x0 && position.x <= p.x1
-            if !centerOK { dropFromPlatform(); return }
+            // 窗口整体平移：跟着走（用顶边中点估计位移，被遮挡导致的 x0/x1 变化不会把它带跑）
+            // 宽度没变 = 窗口整体挪了 → 跟着挪；宽度变了多半是被别的窗口挡住一截，原地不动
+            if abs((p.x1 - p.x0) - (o.x1 - o.x0)) < 2 { position.x += p.x0 - o.x0 }
+            standing = p
+            guard position.x >= p.x0, position.x <= p.x1 else { dropFromPlatform(); return }
             if state != .grabbed && state != .falling { position.y = p.y }
         }
     }
 
     private func dropFromPlatform() {
-        onPlatform = false
+        standing = nil
         if state == .grabbed || state == .falling { return }
         state = .falling
         stateTime = 0
@@ -417,7 +428,7 @@ final class PetWorld {
     }
 
     private func hopDown() {
-        onPlatform = false
+        standing = nil
         state = .falling
         stateTime = 0
         velocity = CGVector(dx: facing * 160, dy: 380)
@@ -428,7 +439,7 @@ final class PetWorld {
     func beginGrab(at point: CGPoint) {
         guard state != .grabbed else { return }
         grabbedFrom = state
-        onPlatform = false
+        standing = nil
         if state == .sign { signText = nil }
         state = .grabbed
         stateTime = 0
@@ -507,10 +518,15 @@ final class PetWorld {
         }
 
         // 踩到窗口顶边
-        if let p = platform, velocity.dy <= 0, previousY >= p.y - 0.5, position.y <= p.y,
-           position.x >= p.x0 + halfWidth * 0.4, position.x <= p.x1 - halfWidth * 0.4 {
+        // 这一帧穿过了哪些窗口顶边？踩最高的那个
+        let candidates = platforms + (platform.map { [$0] } ?? [])
+        let crossed = candidates.filter {
+            velocity.dy <= 0 && previousY >= $0.y - 0.5 && position.y <= $0.y
+                && position.x >= $0.x0 + halfWidth * 0.4 && position.x <= $0.x1 - halfWidth * 0.4
+        }
+        if let p = crossed.max(by: { $0.y < $1.y }) {
             let impact = abs(velocity.dy)
-            onPlatform = true
+            standing = p
             position.y = p.y
             velocity = .zero
             startled = false
@@ -526,7 +542,7 @@ final class PetWorld {
 
         // 落地
         if position.y <= groundY && velocity.dy <= 0 {
-            onPlatform = false
+            standing = nil
             startled = false
             let impact = abs(velocity.dy)
             position.y = groundY

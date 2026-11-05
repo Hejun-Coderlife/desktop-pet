@@ -193,6 +193,8 @@ final class Stage {
         lines.append("当前状态        = \(world.state.displayName)，位置 \(rectString(CGRect(x: world.position.x, y: world.position.y, width: 0, height: 0)))")
         let plat = FrontmostAppWindow.topEdge(on: currentScreen, groundY: world.groundY)
         lines.append("可站的窗口顶边  = \(plat.map { "id=\($0.id) x=\(Int($0.x0))…\(Int($0.x1)) y=\(Int($0.y))" } ?? "无")")
+        let all = FrontmostAppWindow.allTopEdges(on: currentScreen, groundY: world.groundY)
+        lines.append("所有可站的顶边  = \(all.count) 个：" + all.prefix(6).map { "y=\(Int($0.y)) x=\(Int($0.x0))…\(Int($0.x1))" }.joined(separator: "，"))
         lines.append("有声音在放      = \(SoundOutput.isPlaying())")
         let anyInput = CGEventType(rawValue: ~0)!
         lines.append("系统空闲秒数    = \(String(format: "%.1f", CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: anyInput)))")
@@ -328,6 +330,7 @@ final class Stage {
 
         world.climbEnabled = Settings.climbWindows
         world.setPlatform(Settings.climbWindows ? FrontmostAppWindow.topEdge(on: screen, groundY: groundY) : nil)
+        world.setPlatforms(Settings.climbWindows ? FrontmostAppWindow.allTopEdges(on: screen, groundY: groundY) : [])
         world.soundPlaying = Settings.dance && SoundOutput.isPlaying()
 
         let fs = FrontmostAppWindow.isFullscreen(on: screen)
@@ -539,7 +542,7 @@ extension FrontmostAppWindow {
             let y = (b["Y"] as? NSNumber)?.doubleValue ?? 0
             let w = (b["Width"] as? NSNumber)?.doubleValue ?? 0
             let h = (b["Height"] as? NSNumber)?.doubleValue ?? 0
-            guard w >= 240, h >= 120 else { continue }
+            guard w >= 100, h >= 60 else { continue }
             if w >= screen.frame.width - 4 && h >= screen.frame.height - 4 { return nil }   // 全屏
             let top = CGFloat(mainHeight - y) - screen.frame.minY
             let x0 = CGFloat(x) - screen.frame.minX
@@ -588,5 +591,47 @@ enum SoundOutput {
             return true
         }
         return false
+    }
+}
+
+extension FrontmostAppWindow {
+
+    /// 屏幕上所有普通窗口「露在外面」的顶边（被更前面的窗口挡住的那段去掉，取剩下最长的一段）。
+    /// 只读位置，不读内容，免权限。
+    static func allTopEdges(on screen: NSScreen, groundY: CGFloat) -> [Platform] {
+        let me = ProcessInfo.processInfo.processIdentifier
+        guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else { return [] }
+        let mainHeight = NSScreen.screens.first?.frame.height ?? screen.frame.height
+        var inFront: [CGRect] = []          // CG 坐标（左上原点，y 向下）
+        var result: [Platform] = []
+        for info in list {                  // 列表是从前往后排的
+            guard (info[kCGWindowLayer as String] as? NSNumber)?.intValue == 0,
+                  (info[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value != me,
+                  ((info[kCGWindowAlpha as String] as? NSNumber)?.doubleValue ?? 1) > 0.05,
+                  let b = info[kCGWindowBounds as String] as? [String: Any] else { continue }
+            let r = CGRect(x: (b["X"] as? NSNumber)?.doubleValue ?? 0, y: (b["Y"] as? NSNumber)?.doubleValue ?? 0,
+                           width: (b["Width"] as? NSNumber)?.doubleValue ?? 0, height: (b["Height"] as? NSNumber)?.doubleValue ?? 0)
+            defer { inFront.append(r) }
+            guard r.width >= 100, r.height >= 60 else { continue }
+            let top = CGFloat(mainHeight) - r.minY - screen.frame.minY
+            guard top > groundY + 50, top < screen.frame.height - 30 - 60 else { continue }
+            // 顶边这条线上，被前面窗口盖住的区间扣掉
+            var segs: [(CGFloat, CGFloat)] = [(r.minX, r.maxX)]
+            for f in inFront where f.minY < r.minY + 1 && f.maxY > r.minY - 1 {
+                segs = segs.flatMap { s -> [(CGFloat, CGFloat)] in
+                    if f.maxX <= s.0 || f.minX >= s.1 { return [s] }
+                    var out: [(CGFloat, CGFloat)] = []
+                    if f.minX > s.0 { out.append((s.0, f.minX)) }
+                    if f.maxX < s.1 { out.append((f.maxX, s.1)) }
+                    return out
+                }
+            }
+            guard let best = segs.max(by: { ($0.1 - $0.0) < ($1.1 - $1.0) }), best.1 - best.0 >= 70 else { continue }
+            let id = (info[kCGWindowNumber as String] as? NSNumber)?.intValue ?? 0
+            let x0 = max(0, best.0 - screen.frame.minX), x1 = min(screen.frame.width, best.1 - screen.frame.minX)
+            guard x1 - x0 >= 70 else { continue }
+            result.append(Platform(id: id, x0: x0, x1: x1, y: top))
+        }
+        return result
     }
 }
