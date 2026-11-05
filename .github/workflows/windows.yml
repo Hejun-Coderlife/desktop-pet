@@ -23,13 +23,23 @@ jobs:
       - name: Mesa (software OpenGL for the self-test only)
         run: |
           $rel = Invoke-RestMethod "https://api.github.com/repos/pal1000/mesa-dist-win/releases/latest" -Headers @{ Authorization = "Bearer ${{ github.token }}" }
-          $asset = $rel.assets | Where-Object { $_.name -match '^mesa3d-.*-release-msvc\.7z$' } | Select-Object -First 1
-          Write-Host "mesa: $($asset.name)"
-          Invoke-WebRequest $asset.browser_download_url -OutFile mesa.7z
-          7z x mesa.7z -omesa | Out-Null
           New-Item -ItemType Directory -Force test | Out-Null
           Copy-Item windows/bin/Release/net48/Pip.exe test/
-          Copy-Item mesa/x64/*.dll test/
+          # 新版 msvc 包的 x64/ 里不一定有 opengl32.dll，按 msvc → mingw 顺序找，找到哪个目录就整目录拷过去
+          $gl = $null
+          foreach ($kind in @("msvc", "mingw")) {
+            $asset = $rel.assets | Where-Object { $_.name -match "^mesa3d-.*-release-$kind\.7z$" } | Select-Object -First 1
+            if (-not $asset) { continue }
+            Write-Host "mesa: $($asset.name)"
+            Invoke-WebRequest $asset.browser_download_url -OutFile "mesa-$kind.7z"
+            7z x "mesa-$kind.7z" "-omesa-$kind" | Out-Null
+            $gl = Get-ChildItem "mesa-$kind" -Recurse -Filter opengl32.dll | Where-Object { $_.DirectoryName -match 'x64' } | Select-Object -First 1
+            if ($gl) { break }
+            Get-ChildItem "mesa-$kind" -Recurse -Filter *.dll | ForEach-Object { $_.FullName } | Select-Object -First 40
+          }
+          if (-not $gl) { throw "mesa 包里没找到 x64 的 opengl32.dll" }
+          Write-Host "opengl32: $($gl.FullName)"
+          Copy-Item "$($gl.DirectoryName)/*.dll" test/
           Get-ChildItem test | Format-Table Name, Length
 
       - name: Self-test
