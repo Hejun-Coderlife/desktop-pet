@@ -51,6 +51,11 @@ final class Stage {
     private var occluded = false
     private var screenObserver: NSObjectProtocol?
 
+    /// 眼神方向（-1…1），逐帧平滑逼近鼠标方向
+    private var gaze = CGPoint.zero
+    /// 当前系统光标，避免每帧重复 set()
+    private var cursorStyle = CursorStyle.arrow
+
     // MARK: 初始化
 
     init(screen: NSScreen? = nil) {
@@ -211,6 +216,18 @@ final class Stage {
         sceneView.preferredFramesPerSecond = Int((1.0 / interval).rounded())
     }
 
+    private enum CursorStyle {
+        case arrow, openHand, closedHand
+
+        var cursor: NSCursor {
+            switch self {
+            case .arrow: return .arrow
+            case .openHand: return .openHand
+            case .closedHand: return .closedHand
+            }
+        }
+    }
+
     private func tick() {
         let now = CACurrentMediaTime()
         let rawDt = now - lastTickTime
@@ -224,6 +241,7 @@ final class Stage {
 
         guard !paused, !userHidden, !fullscreenHidden, !occluded else {
             sceneView.isPlaying = false
+            applyCursor(.arrow)
             return
         }
 
@@ -301,10 +319,12 @@ final class Stage {
             if NSEvent.pressedMouseButtons & 1 == 0 {
                 world.endGrab()
                 panel.ignoresMouseEvents = !petRect().contains(point)
+                updateLook(at: point)
                 return
             }
             panel.ignoresMouseEvents = false
             world.drag(to: point)
+            updateLook(at: point)
             return
         }
 
@@ -313,6 +333,46 @@ final class Stage {
         if panel.ignoresMouseEvents != shouldIgnore {
             panel.ignoresMouseEvents = shouldIgnore
         }
+        updateLook(at: point)
+    }
+
+    /// 眼神跟着鼠标走 + 光标形状（悬停=张开手，拎着=握手）
+    private func updateLook(at point: CGPoint) {
+        // 脸的中心：脚底往上 62 点
+        let faceX = world.position.x
+        let faceY = world.position.y + 62
+        // 鼠标走近到 320 点以内才跟着看，走远了就望回正前方
+        let dx = point.x - faceX
+        let dy = point.y - faceY
+        let engaged = hypot(dx, dy) < 320
+        let targetX = engaged ? max(-1, min(1, dx / 150)) : 0
+        let targetY = engaged ? max(-1, min(1, dy / 150)) : 0
+
+        gaze.x += (targetX - gaze.x) * 0.22
+        gaze.y += (targetY - gaze.y) * 0.22
+        // 角色朝左时根节点是镜像的，局部 x 要跟着翻
+        rig.setGaze(CGPoint(x: gaze.x * world.facing, y: gaze.y))
+
+        if world.state == .grabbed {
+            applyCursor(.closedHand)
+        } else if petRect().contains(point) {
+            applyCursor(.openHand)
+        } else {
+            applyCursor(.arrow)
+        }
+    }
+
+    /// 只在需要时设置光标；被别的 App 改掉了就再抢回来
+    private func applyCursor(_ style: CursorStyle) {
+        guard style != cursorStyle || NSCursor.current !== style.cursor else { return }
+        cursorStyle = style
+        style.cursor.set()
+    }
+
+    /// 退出 / 隐藏前把光标还原，免得留在别的窗口上是只小手
+    func resetCursor() {
+        cursorStyle = .arrow
+        NSCursor.arrow.set()
     }
 
     func petMouseDown(at point: CGPoint) {

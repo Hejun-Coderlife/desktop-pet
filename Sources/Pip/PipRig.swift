@@ -44,6 +44,9 @@ final class PipRig: PetRig {
     private let headGroup = SCNNode()
     private let eyeGroupL = SCNNode()
     private let eyeGroupR = SCNNode()
+    /// 眼珠的原始位置，眼神偏移以它为基准
+    private let eyeBaseL = CGPoint(x: -7.6, y: 2.2)
+    private let eyeBaseR = CGPoint(x: 7.6, y: 2.2)
     private let armPivotL = SCNNode()
     private let armPivotR = SCNNode()
     private let legPivotL = SCNNode()
@@ -125,9 +128,9 @@ final class PipRig: PetRig {
 
         // 眼睛（小椭圆 + 冷光）
         for (group, sign) in [(eyeGroupL, CGFloat(-1)), (eyeGroupR, CGFloat(1))] {
-            group.position = SCNVector3(sign * 7.6, 2.2, 7.5)
+            group.position = SCNVector3(sign * 7.6, 2.2, 7.5)   // 与 eyeBaseL/R 保持一致
 
-            let eye = sphereNode(radius: 2.9, material: makeSmoothMaterial(PipPalette.eye))
+            let eye = sphereNode(radius: 3.2, material: makeSmoothMaterial(PipPalette.eye))
             eye.scale = SCNVector3(0.95, 1.15, 0.45)
             group.addChildNode(eye)
 
@@ -210,6 +213,20 @@ final class PipRig: PetRig {
         eyeGroupL.scale = eyeScale
         eyeGroupR.scale = eyeScale
 
+        SCNTransaction.commit()
+    }
+
+    // MARK: 眼神
+
+    func setGaze(_ direction: CGPoint) {
+        let dx = direction.x * 2.2
+        let dy = direction.y * 1.6
+
+        SCNTransaction.begin()
+        SCNTransaction.animationDuration = 0
+        SCNTransaction.disableActions = true
+        eyeGroupL.position = SCNVector3(eyeBaseL.x + dx, eyeBaseL.y + dy, 7.5)
+        eyeGroupR.position = SCNVector3(eyeBaseR.x + dx, eyeBaseR.y + dy, 7.5)
         SCNTransaction.commit()
     }
 

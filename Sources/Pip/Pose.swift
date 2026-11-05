@@ -41,4 +41,10 @@ protocol PetRig: AnyObject {
     var pixelHeight: CGFloat { get }
     /// 应用一帧姿势
     func apply(_ pose: Pose)
+    /// 眼神方向（-1…1，屏幕坐标方向）。不需要眼神的实现可以不管
+    func setGaze(_ direction: CGPoint)
+}
+
+extension PetRig {
+    func setGaze(_ direction: CGPoint) {}
 }

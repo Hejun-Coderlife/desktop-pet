@@ -51,5 +51,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     @objc private func toggleHidden() { stage?.toggleHidden() }
     @objc private func togglePause() { stage?.togglePaused() }
-    @objc private func quit() { NSApp.terminate(nil) }
+    @objc private func quit() {
+        stage?.resetCursor()
+        NSApp.terminate(nil)
+    }
 }
