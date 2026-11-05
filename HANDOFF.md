@@ -258,3 +258,7 @@ swift build                 # 调试编译
 - 11-05 视频里去掉所有文字（片尾也不放），只保留举牌上的「喝口水吧 💧」。
 - 11-05 修：决定跳上/跳下窗口的那一帧，updateWander 末尾把速度清零按回地面 → 自己跳窗口一直没生效。现在跳的目标 = 所有露出来的窗口顶边里最近够得着的（jumpReach 600）。自检加了「旁边小窗口 30 秒内要跳上去」。
 - 11-05 窗口改成跟着 Pip 走的 320×300 小框（Stage.layoutBox，相机对准小框，场景坐标不变；鼠标统一用 eventPoint() 舞台坐标）。原来全屏透明窗口会被截图「选窗口」模式选中截出空图，调度中心里也有空框。
+- 11-05 视频里的窗口换成真实 App 截图（`screencapture -l<窗口id> -o` 只截那一个窗口）：
+  Typora（演示笔记 video/assets/notes.md「周末计划」）、QQ 音乐（正在放 Ella Langley《Choosin' Texas》MV，账号头像/昵称/VIP/续费条/自建歌单已用侧栏底色遮掉）。
+  都在 compose() 里贴到桌面上、Pip 下面（不进 SceneKit 免得偏色）。Apple Music 没会员放不了，放弃。
+- 输出两份：pip-demo.mp4（原创配乐）、pip-demo-无声.mp4（用户自己录歌去配）。

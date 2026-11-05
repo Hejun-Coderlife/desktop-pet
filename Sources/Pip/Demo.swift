@@ -56,7 +56,7 @@ enum Demo {
             scene.rootNode.addChildNode(plane(backgroundImage(), w: W, h: H, at: SCNVector3(W / 2, H / 2, -400), order: -20))
             scene.rootNode.addChildNode(plane(dockImage(), w: 520, h: 62, at: SCNVector3(W / 2, 31, -380), order: -18))
         }
-        let window = plane(windowImage(), w: winW, h: winH, at: SCNVector3(winCX, winTop - winH / 2, -300), order: -10)
+        let window = plane(NSImage(contentsOfFile: "video/assets/typora.png") ?? windowImage(), w: winW, h: winH, at: SCNVector3(winCX, winTop - winH / 2, -300), order: -10)
         scene.rootNode.addChildNode(window)
 
         // 鼠标
@@ -207,15 +207,15 @@ enum Demo {
                     if pet.state == .landing && t - pet.stateStart > Double(PetWorld.landingDuration) { set(.perch) }
                     // 鼠标抓住标题栏左右拖一下，Pip 坐在上面跟着走
                     if u >= 2.8 && u < 3.4 {
-                        cursor = (lerp(CGPoint(x: 300, y: 470), CGPoint(x: 560, y: winTop - 11), ease((u - 2.8) / 0.6)), .arrow)
+                        cursor = (lerp(CGPoint(x: 300, y: 470), CGPoint(x: 560, y: winTop - 10), ease((u - 2.8) / 0.6)), .arrow)
                     } else if u >= 3.4 {
                         let d = min(1, (u - 3.5) / 1.4)
                         winOffset = d > 0 ? -130 * CGFloat(sin(.pi * d)) : 0
-                        cursor = (CGPoint(x: 560 + winOffset, y: winTop - 11), .arrow)
+                        cursor = (CGPoint(x: 560 + winOffset, y: winTop - 10), .arrow)
                         if u > 4.95 {
                             // 移到红色关闭按钮
                             let k = min(1, (u - 4.95) / 0.4)
-                            cursor = (lerp(CGPoint(x: 560, y: winTop - 11), CGPoint(x: winCX - winW / 2 + 14, y: winTop - 11), ease(k)), .arrow)
+                            cursor = (lerp(CGPoint(x: 560, y: winTop - 10), CGPoint(x: winCX - winW / 2 + 10, y: winTop - 10), ease(k)), .arrow)
                         }
                     }
                     pet.x = 620 + winOffset
@@ -229,7 +229,7 @@ enum Demo {
                     if flying { physics() }
                     if pet.state == .landing && t - pet.stateStart > Double(PetWorld.landingDuration) { set(.idle) }
                     let away = min(1, (u - 5.6) / 0.7)
-                    if away < 1 { cursor = (lerp(CGPoint(x: winCX - winW / 2 + 14, y: winTop - 11), CGPoint(x: 120, y: 470), ease(away)), .arrow) }
+                    if away < 1 { cursor = (lerp(CGPoint(x: winCX - winW / 2 + 10, y: winTop - 10), CGPoint(x: 120, y: 470), ease(away)), .arrow) }
                 }
 
             case ..<27.0:
@@ -334,7 +334,19 @@ enum Demo {
 
             SCNTransaction.commit()
 
-            guard let img = renderer.render(), let out = compose(img, t: t) else {
+            var overlays: [Overlay] = []
+            if let shot = typoraShot {
+                window.isHidden = true
+                let w = winW * winScale, h = winH * winScale
+                overlays.append(Overlay(image: shot, rect: CGRect(x: winCX + winOffset - w / 2, y: winTop - winH / 2 - h / 2, width: w, height: h), alpha: winAlpha))
+            }
+            if let shot = musicShot, t > 22.6, t < 27.5 {
+                // 跳舞那段：QQ 音乐在放歌（MV 在播），Pip 在它旁边跟着摇
+                let a = CGFloat(min(1, (t - 22.6) / 0.4, (27.5 - t) / 0.4))
+                let w: CGFloat = 300, h = w * CGFloat(shot.height) / CGFloat(shot.width)
+                overlays.append(Overlay(image: shot, rect: CGRect(x: 450 - w / 2, y: 215 - h / 2, width: w, height: h), alpha: a))
+            }
+            guard let img = renderer.render(), let out = compose(img, t: t, overlays: overlays) else {
                 print("✗ 第 \(f) 帧渲染失败"); exit(1)
             }
             _ = Snapshot.write(image: out, to: String(format: "%@/%05d.png", dir, f))
@@ -372,12 +384,18 @@ enum Demo {
 
     // MARK: 合成字幕
 
-    static let realDesktop: CGImage? = {
-        guard let src = CGImageSourceCreateWithURL(URL(fileURLWithPath: "video/assets/desktop-crop.png") as CFURL, nil) else { return nil }
+    static func loadCG(_ path: String) -> CGImage? {
+        guard let src = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, nil) else { return nil }
         return CGImageSourceCreateImageAtIndex(src, 0, nil)
-    }()
+    }
+    static let realDesktop = loadCG("video/assets/desktop-crop.png")
+    /// 真实 App 窗口截图（只截那一个窗口，账号信息已遮掉）：合成时贴在桌面上、Pip 下面
+    static let typoraShot = loadCG("video/assets/typora.png")
+    static let musicShot = loadCG("video/assets/qqmusic.png")
 
-    static func compose(_ img: CGImage, t: Double) -> CGImage? {
+    struct Overlay { let image: CGImage; let rect: CGRect; let alpha: CGFloat }
+
+    static func compose(_ img: CGImage, t: Double, overlays: [Overlay] = []) -> CGImage? {
         guard let ctx = CGContext(data: nil, width: outW, height: outH, bitsPerComponent: 8, bytesPerRow: 0,
                                   space: CGColorSpace(name: CGColorSpace.sRGB)!,
                                   bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
@@ -388,6 +406,15 @@ enum Demo {
             let hh = CGFloat(cam.z), hw = hh * 16 / 9
             let k = CGFloat(outH) / (2 * hh)
             ctx.draw(bg, in: CGRect(x: -(CGFloat(cam.x) - hw) * k, y: -(CGFloat(cam.y) - hh) * k, width: W * k, height: H * k))
+            for o in overlays where o.alpha > 0.001 {
+                let r = CGRect(x: (o.rect.minX - (CGFloat(cam.x) - hw)) * k, y: (o.rect.minY - (CGFloat(cam.y) - hh)) * k,
+                               width: o.rect.width * k, height: o.rect.height * k)
+                ctx.saveGState()
+                ctx.setAlpha(o.alpha)
+                ctx.setShadow(offset: CGSize(width: 0, height: -10), blur: 40, color: CGColor(gray: 0, alpha: 0.35))
+                ctx.draw(o.image, in: r)
+                ctx.restoreGState()
+            }
         }
         ctx.draw(img, in: CGRect(x: 0, y: 0, width: outW, height: outH))
         NSGraphicsContext.saveGraphicsState()
