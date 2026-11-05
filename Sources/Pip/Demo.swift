@@ -9,6 +9,11 @@ import Metal
 /// 剧本是按时间写死的；为了让眼神平滑、抛出去的物理连续，每次都从 0 秒开始模拟，只渲染指定区间。
 enum Demo {
 
+    /// 英文版：PIP_DEMO_LANG=en（英文 Typora 笔记、英文化的 QQ 音乐截图、英文举牌）
+    static let english = ProcessInfo.processInfo.environment["PIP_DEMO_LANG"] == "en"
+    static let typoraPath = english ? "video/assets/typora-en.png" : "video/assets/typora.png"
+    static let musicPath = english ? "video/assets/qqmusic-en.png" : "video/assets/qqmusic.png"
+
     static let fps = 30.0
     static let duration = 41.0
     static let W: CGFloat = 960, H: CGFloat = 540      // 舞台大小（点）
@@ -56,7 +61,7 @@ enum Demo {
             scene.rootNode.addChildNode(plane(backgroundImage(), w: W, h: H, at: SCNVector3(W / 2, H / 2, -400), order: -20))
             scene.rootNode.addChildNode(plane(dockImage(), w: 520, h: 62, at: SCNVector3(W / 2, 31, -380), order: -18))
         }
-        let window = plane(NSImage(contentsOfFile: "video/assets/typora.png") ?? windowImage(), w: winW, h: winH, at: SCNVector3(winCX, winTop - winH / 2, -300), order: -10)
+        let window = plane(NSImage(contentsOfFile: typoraPath) ?? windowImage(), w: winW, h: winH, at: SCNVector3(winCX, winTop - winH / 2, -300), order: -10)
         scene.rootNode.addChildNode(window)
 
         // 鼠标
@@ -238,7 +243,7 @@ enum Demo {
                 dancing = true
 
             case ..<30.5:
-                if pet.state != .sign { pet.sign = "喝口水吧 💧"; set(.sign) }
+                if pet.state != .sign { pet.sign = english ? "Drink water 💧" : "喝口水吧 💧"; set(.sign) }
 
             case ..<35.6:
                 pet.sign = nil
@@ -390,8 +395,8 @@ enum Demo {
     }
     static let realDesktop = loadCG("video/assets/desktop-crop.png")
     /// 真实 App 窗口截图（只截那一个窗口，账号信息已遮掉）：合成时贴在桌面上、Pip 下面
-    static let typoraShot = loadCG("video/assets/typora.png")
-    static let musicShot = loadCG("video/assets/qqmusic.png")
+    static let typoraShot = loadCG(typoraPath)
+    static let musicShot = loadCG(musicPath)
 
     struct Overlay { let image: CGImage; let rect: CGRect; let alpha: CGFloat }
 
