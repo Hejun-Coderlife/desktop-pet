@@ -25,9 +25,8 @@ enum PetAnimator {
             let s = sin(world.walkPhase)
             let s2 = sin(world.walkPhase * 2)
             // 侧身朝行进方向，正面相机才看得见腿一前一后；身体左右摇摆约 8 度，抬起的那只脚离地
-            // 脸是贴在身前的平面软片，侧转太多会戳出轮廓：身体转 0.24，头再往回扭一点，脸基本朝前
-            pose.bodyYaw = 0.24
-            pose.headYaw = -0.12
+            // 脸贴着身体曲面，可以放心侧身
+            pose.bodyYaw = 0.42
             pose.legLeft = s * 0.6
             pose.legRight = -s * 0.6
             pose.liftLeft = max(0, s) * 3.2

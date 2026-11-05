@@ -46,10 +46,34 @@ final class PipRig: PetRig {
     private let faceWidth: CGFloat = 43
     private let faceHeight: CGFloat = 40
     /// 脸那张软片的深度：比肚子最鼓的地方再靠前一点，否则下半张脸会被绒毛吃掉
-    /// 长毛（6.2 点）会从身体表面往前伸，脸片要比毛尖更靠前，否则下巴被毛吃掉
-    private let facePanelZ: CGFloat = 19.5
+    /// 脸中心在身体上的高度。脸是贴着身体曲面长的一块（不是浮在前面的平面片），侧身时不会戳出轮廓
+    private let faceCenterY: CGFloat = 60
+    /// 脸离身体表面多高（比毛短得多 → 四周的毛高出脸，像脸嵌在毛里）
+    private let faceLift: CGFloat = 0.5
     /// 五官（眼、腮红、嘴）比脸的软片再靠前一点
-    private let featureZ: CGFloat = 20.5
+    /// 身体轮廓在某高度的半径（线性插值）
+    static func bodyRadius(at y: CGFloat) -> CGFloat {
+        let p = bodyProfile
+        if y <= p.first!.y { return p.first!.r }
+        for i in 1..<p.count where y <= p[i].y {
+            let t = (y - p[i - 1].y) / max(0.0001, p[i].y - p[i - 1].y)
+            return p[i - 1].r + (p[i].r - p[i - 1].r) * t
+        }
+        return p.last!.r
+    }
+
+    /// 身体正面曲面上 (x, y) 处、离表面 lift 高的点
+    private func surfacePoint(_ x: CGFloat, _ y: CGFloat, lift: CGFloat) -> SCNVector3 {
+        let r = Self.bodyRadius(at: y) + lift
+        return SCNVector3(x, y, sqrt(max(0, r * r - x * x)))
+    }
+
+    /// 把一个节点贴到曲面上：位置 + 绕 y 轴转到切面方向
+    private func stick(_ node: SCNNode, x: CGFloat, y: CGFloat, lift: CGFloat) {
+        let p = surfacePoint(x, y, lift: lift)
+        node.position = p
+        node.eulerAngles.y = atan2(x, max(0.001, p.z))
+    }
 
     private let squashNode = SCNNode()
     private let bodyGroup = SCNNode()
@@ -58,8 +82,8 @@ final class PipRig: PetRig {
     private let eyeGroupL = SCNNode()
     private let eyeGroupR = SCNNode()
     /// 眼珠的原始位置，眼神偏移以它为基准
-    private let eyeBaseL = CGPoint(x: -8.7, y: 2.0)
-    private let eyeBaseR = CGPoint(x: 8.7, y: 2.0)
+    private let eyeBaseL = CGPoint(x: -8.7, y: 62.0)
+    private let eyeBaseR = CGPoint(x: 8.7, y: 62.0)
     /// 眼神方向（-1…1，已在 Stage 里按朝向翻过），由 setGaze 写入、apply 里统一生效
     private var gaze = CGPoint.zero
     private let armPivotL = SCNNode()
@@ -103,7 +127,8 @@ final class PipRig: PetRig {
         let body = Lathe.node(profile: Self.bodyProfile, segments: 96, material: furMaterial)
         // 毛的粗细要接近 1 个屏幕点：周长约 188 点 / (2.8 × 128) ≈ 0.5 点一根（0.9 太粗像刺猬，0.08 太细会闪）。
         // 再细就会小于一个像素，每帧采到不同的毛 → 闪烁噪点（实测过）
-        Fur.apply(to: body, colors: furColors, length: 5.4, tile: CGSize(width: 4.6, height: 2.0), layers: 20)
+        Fur.apply(to: body, colors: furColors, length: 5.4, tile: CGSize(width: 4.6, height: 2.0), layers: 20,
+                  faceHole: SCNVector4(0, faceCenterY, faceWidth / 2, faceHeight / 2))
         bodyGroup.addChildNode(body)
 
         buildLeg(pivot: legPivotL, x: -9)
@@ -113,7 +138,11 @@ final class PipRig: PetRig {
 
         buildHead()
         buildExtras()
-        Outfit.current().attach(to: headGroup, body: bodyGroup)
+        // 装扮的坐标是按「脸中心 (0,60,18)」写的，给它一个同样位置的锚点
+        let outfitAnchor = SCNNode()
+        outfitAnchor.position = SCNVector3(0, 60, 18)
+        bodyGroup.addChildNode(outfitAnchor)
+        Outfit.current().attach(to: outfitAnchor, body: bodyGroup)
     }
 
     // MARK: z 和牌子
@@ -218,7 +247,8 @@ final class PipRig: PetRig {
 
     private func buildHead() {
         // 脸这一坨绕自己的中心转，不会在绒毛上滑来滑去
-        headPivot.position = SCNVector3(0, 60, 18)
+        // 脸和五官直接用身体坐标贴在曲面上；headPivot 只是个容器，不再单独转（这个玩偶没有脖子）
+        headPivot.position = SCNVector3(0, 0, 0)
         bodyGroup.addChildNode(headPivot)
         headPivot.addChildNode(headGroup)
 
@@ -228,7 +258,7 @@ final class PipRig: PetRig {
 
         // 眼睛（小椭圆 + 冷光）
         for (group, sign) in [(eyeGroupL, CGFloat(-1)), (eyeGroupR, CGFloat(1))] {
-            group.position = SCNVector3(sign * 8.7, 2.0, featureZ)
+            stick(group, x: sign * 8.7, y: 62, lift: faceLift + 0.9)
 
             let eye = sphereNode(radius: 2.9, material: makeSmoothMaterial(PipPalette.eye))
             eye.scale = SCNVector3(0.95, 1.1, 0.5)
@@ -269,7 +299,7 @@ final class PipRig: PetRig {
             let oneMinus = 1 - t
             let x = oneMinus * oneMinus * -halfWidth + t * t * halfWidth
             let y = -4.2 + oneMinus * oneMinus * topY + 2 * oneMinus * t * dipY + t * t * topY
-            points.append(SCNVector3(x, y, featureZ + 0.2))
+            points.append(surfacePoint(x, faceCenterY + y, lift: faceLift + 0.45))
         }
         node.addChildNode(Tube.node(points: points, radius: 0.42, material: material))
         return node
@@ -291,11 +321,11 @@ final class PipRig: PetRig {
 
         bodyGroup.position = SCNVector3(0, pose.bob, 0)
         // 身体整体朝鼠标方向微微倾斜，比只转眼珠明显得多
-        bodyGroup.eulerAngles = SCNVector3(0, pose.bodyYaw, -pose.bodyLean - gaze.x * 0.05)
+        // 没有脖子：转头、歪头、点头都由整个身体做（幅度打折），脸永远贴在身上
+        bodyGroup.eulerAngles = SCNVector3(pose.headPitch * 0.5 - gaze.y * 0.03,
+                                           pose.bodyYaw + pose.headYaw * 0.5 + gaze.x * 0.08,
+                                           -pose.bodyLean - gaze.x * 0.05 - pose.headTilt * 0.6)
 
-        headPivot.eulerAngles = SCNVector3(pose.headPitch - gaze.y * 0.04,
-                                           pose.headYaw + gaze.x * 0.12,
-                                           pose.headTilt)
 
         armPivotL.eulerAngles = SCNVector3(0, 0, -pose.armLeft)
         armPivotR.eulerAngles = SCNVector3(0, 0, pose.armRight)
@@ -328,8 +358,8 @@ final class PipRig: PetRig {
         // 两只眼的 z 相同，滑多远都不会被脸切掉，大小一只是对得上的。
         let lookX = gaze.x * 2.8
         let lookY = gaze.y * 1.9
-        eyeGroupL.position = SCNVector3(eyeBaseL.x + lookX, eyeBaseL.y + lookY, featureZ)
-        eyeGroupR.position = SCNVector3(eyeBaseR.x + lookX, eyeBaseR.y + lookY, featureZ)
+        stick(eyeGroupL, x: eyeBaseL.x + lookX, y: eyeBaseL.y + lookY, lift: faceLift + 0.9)
+        stick(eyeGroupR, x: eyeBaseR.x + lookX, y: eyeBaseR.y + lookY, lift: faceLift + 0.9)
 
         SCNTransaction.commit()
     }
@@ -415,8 +445,32 @@ final class PipRig: PetRig {
                        intent: .defaultIntent)
     }()
 
+    /// 贴着身体曲面的弯曲脸片：在脸的矩形范围里铺网格，每个顶点推到身体表面上
     private func facePanelNode() -> SCNNode {
-        let plane = SCNPlane(width: faceWidth, height: faceHeight)
+        let cols = 28, rows = 28
+        var pos: [SCNVector3] = [], nor: [SCNVector3] = [], uv: [CGPoint] = []
+        for j in 0...rows {
+            for i in 0...cols {
+                let u = CGFloat(i) / CGFloat(cols), v = CGFloat(j) / CGFloat(rows)
+                let x = (u - 0.5) * faceWidth
+                let y = faceCenterY + (0.5 - v) * faceHeight
+                let p = surfacePoint(x, y, lift: faceLift)
+                pos.append(p)
+                let l = max(0.001, sqrt(p.x * p.x + p.z * p.z))
+                nor.append(SCNVector3(p.x / l, 0, p.z / l))
+                uv.append(CGPoint(x: u, y: v))
+            }
+        }
+        var idx: [UInt32] = []
+        for j in 0..<rows {
+            for i in 0..<cols {
+                let a = UInt32(j * (cols + 1) + i), b = a + 1, c = a + UInt32(cols + 1), d = c + 1
+                idx.append(contentsOf: [a, c, b, b, c, d])
+            }
+        }
+        let plane = SCNGeometry(sources: [SCNGeometrySource(vertices: pos), SCNGeometrySource(normals: nor),
+                                          SCNGeometrySource(textureCoordinates: uv)],
+                                elements: [SCNGeometryElement(indices: idx, primitiveType: .triangles)])
         let material = SCNMaterial()
         material.lightingModel = .constant
         material.diffuse.contents = Self.faceImage
@@ -426,7 +480,6 @@ final class PipRig: PetRig {
         plane.materials = [material]
 
         let node = SCNNode(geometry: plane)
-        node.position = SCNVector3(0, 0, facePanelZ)
         return node
     }
 
@@ -470,7 +523,7 @@ final class PipRig: PetRig {
         plane.materials = [material]
 
         let node = SCNNode(geometry: plane)
-        node.position = SCNVector3(sign * 9.8, -5.0, featureZ + 0.1)
+        stick(node, x: sign * 9.8, y: 55, lift: faceLift + 0.25)
         return node
     }
 

@@ -25,14 +25,16 @@ enum Fur {
     /// - Parameters:
     ///   - length: 毛长（点）
     ///   - tile: 毛高贴图在 UV 上的重复次数，按部件尺寸给，保证毛的粗细在各部件上差不多
-    static func apply(to node: SCNNode, colors: Colors, length: CGFloat, tile: CGSize, layers: Int = Fur.layers) {
+    /// - faceHole: 身体上「不长毛」的脸部区域（模型坐标的中心 x、y 和半宽、半高；只在 z>0 的正面生效）
+    static func apply(to node: SCNNode, colors: Colors, length: CGFloat, tile: CGSize, layers: Int = Fur.layers,
+                      faceHole: SCNVector4? = nil) {
         guard let base = node.geometry else { return }
         node.geometry = base.copy() as? SCNGeometry
-        node.geometry?.materials = [material(h: 0, colors: colors, length: length, tile: tile)]
+        node.geometry?.materials = [material(h: 0, colors: colors, length: length, tile: tile, faceHole: faceHole)]
         for i in 1...max(1, layers) {
             let h = CGFloat(i) / CGFloat(layers)
             guard let g = base.copy() as? SCNGeometry else { continue }
-            g.materials = [material(h: h, colors: colors, length: length, tile: tile)]
+            g.materials = [material(h: h, colors: colors, length: length, tile: tile, faceHole: faceHole)]
             let shell = SCNNode(geometry: g)
             shell.name = "fur.shell.\(i)"
             shell.castsShadow = false
@@ -46,7 +48,10 @@ enum Fur {
     #pragma arguments
     float furH;
     float furLen;
+    #pragma varyings
+    float3 furModelPos;
     #pragma body
+    out.furModelPos = _geometry.position.xyz;
     float off = furH * furLen;
     _geometry.position.xyz += _geometry.normal * off;
     _geometry.position.y -= furH * furH * furLen * 0.45;
@@ -58,7 +63,14 @@ enum Fur {
     float3 furRoot;
     float3 furTip;
     float3 furRim;
+    float4 faceHole;
     #pragma body
+    // 脸部禁区：光滑的脸贴在身体曲面上，这一块不长毛（四周的毛自然高出一截，像脸嵌在毛里）
+    if (furH > 0.0 && faceHole.z > 0.0 && in.furModelPos.z > 0.0) {
+        float2 d = abs((in.furModelPos.xy - faceHole.xy) / faceHole.zw);
+        float r = pow(pow(d.x, 2.5) + pow(d.y, 2.5), 0.4);
+        if (r < 0.96) { discard_fragment(); }
+    }
     float strand = _surface.emission.r;
     if (furH > 0.0 && strand < furH) { discard_fragment(); }
     float3 c = mix(furRoot, furTip, furH * 0.9 + strand * 0.04);
@@ -70,7 +82,7 @@ enum Fur {
     _surface.emission = float4(furRim * rim * (0.05 + 0.10 * furH), 1.0);
     """
 
-    private static func material(h: CGFloat, colors: Colors, length: CGFloat, tile: CGSize) -> SCNMaterial {
+    private static func material(h: CGFloat, colors: Colors, length: CGFloat, tile: CGSize, faceHole: SCNVector4?) -> SCNMaterial {
         let m = SCNMaterial()
         m.lightingModel = .lambert
         m.isDoubleSided = false
@@ -90,6 +102,7 @@ enum Fur {
         m.setValue(vec(colors.root), forKey: "furRoot")
         m.setValue(vec(colors.tip), forKey: "furTip")
         m.setValue(vec(colors.rim), forKey: "furRim")
+        m.setValue(NSValue(scnVector4: faceHole ?? SCNVector4(0, 0, 0, 0)), forKey: "faceHole")
         return m
     }
 
