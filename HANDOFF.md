@@ -249,3 +249,9 @@ swift build                 # 调试编译
 - 坑：命令行没有运行循环，场景改动必须包在 SCNTransaction 里；NSCursor.arrow 的图在命令行是空的，箭头是自己画的。
 - 顺带改了真机的坐窗口姿势：身体下沉 11、腿垂在窗口正面晃。
 - 11-05 能站所有窗口：Stage 每 0.5 秒算 allTopEdges（所有 layer0 窗口露在外面的最长顶边段，≥100×60、段长≥70），world.setPlatforms；扔下来时踩穿过的最高那个。自己往上跳仍只挑最前面窗口（platform）。窗口顶离菜单栏不到 ~90 点的不算（站上去头会顶进菜单栏）。
+- 11-05 视频改版：**不要字幕讲解，只留背景音乐**（片尾留 Pip 名字）；背景用**真实桌面**：
+  `screencapture -l<壁纸窗口id>` + `-l<程序坞窗口id>` 分层截（不含任何窗口），程序坞里**去掉 Clash、WPS 和最小化窗口缩略图**后重新拼紧，
+  取屏幕底部正中 960×540 点 → `video/assets/desktop-crop.png`（已 gitignore，换电脑要重截）。
+  真实桌面不进 SceneKit（会变暗变艳），Pip 渲染到透明层，在 compose() 里按镜头裁切盖到原图上。地面 = 56（visibleFrame.minY）。
+- 背景音乐：`tools/make_music.py`（原创合成，八音盒+低音+轻鼓，112 拍/分，用 /tmp/ftvenv 的 numpy）→ `video/assets/music.wav`；
+  合成命令加 `-i video/assets/music.wav -c:a aac -b:a 192k -shortest`。

@@ -13,23 +13,14 @@ enum Demo {
     static let duration = 41.0
     static let W: CGFloat = 960, H: CGFloat = 540      // 舞台大小（点）
     static let outW = 1920, outH = 1080
-    static let ground: CGFloat = 68                     // 程序坞上沿
+    static let ground: CGFloat = 56                     // 程序坞上沿（真实屏幕 visibleFrame.minY）
 
     // 窗口（第 5 段）
     static let winW: CGFloat = 400, winH: CGFloat = 220
     static let winCX: CGFloat = 640, winTop: CGFloat = 330
 
-    static let captions: [(Double, Double, String)] = [
-        (0.3, 3.5, "Pip · 住在程序坞上的毛绒小伙伴"),
-        (3.8, 7.5, "它会一直看着你的鼠标"),
-        (7.8, 11.1, "摸摸头，它会眯眼、脸红"),
-        (11.4, 15.8, "拎起来甩出去，它会自己掉回来"),
-        (16.2, 22.9, "跳上窗口坐着，窗口关了就掉下来"),
-        (23.2, 26.9, "放音乐时，它会跟着摇"),
-        (27.2, 30.4, "到点了，举牌提醒你歇一会儿"),
-        (30.7, 35.4, "你走开太久，它就躺下睡了"),
-        (35.8, 38.4, "节日还会自动换装"),
-    ]
+    /// 不要字幕讲解：功能一看就懂，只留背景音乐（片尾保留产品名）
+    static let captions: [(Double, Double, String)] = []
 
     // MARK: 状态
 
@@ -58,9 +49,13 @@ enum Demo {
         let camera = built.camera
 
         // 假桌面
-        scene.rootNode.addChildNode(plane(backgroundImage(), w: W, h: H, at: SCNVector3(W / 2, H / 2, -400), order: -20))
-        scene.rootNode.addChildNode(plane(menuBarImage(), w: W, h: 16, at: SCNVector3(W / 2, H - 8, -390), order: -19))
-        scene.rootNode.addChildNode(plane(dockImage(), w: 520, h: 62, at: SCNVector3(W / 2, 37, -380), order: -18))
+        // 真实桌面：壁纸层 + 程序坞层分别截图（不含任何窗口），去掉了 Clash、WPS 和最小化窗口缩略图，
+        // 取真实屏幕底部正中 960×540 点。没有素材时退回程序画的假桌面。
+        // 真实桌面不进 SceneKit（它会再做一次色彩转换，壁纸变暗变艳）：Pip 渲染在透明层上，合成时盖到原图上
+        if realDesktop == nil {
+            scene.rootNode.addChildNode(plane(backgroundImage(), w: W, h: H, at: SCNVector3(W / 2, H / 2, -400), order: -20))
+            scene.rootNode.addChildNode(plane(dockImage(), w: 520, h: 62, at: SCNVector3(W / 2, 31, -380), order: -18))
+        }
         let window = plane(windowImage(), w: winW, h: winH, at: SCNVector3(winCX, winTop - winH / 2, -300), order: -10)
         scene.rootNode.addChildNode(window)
 
@@ -377,11 +372,23 @@ enum Demo {
 
     // MARK: 合成字幕
 
+    static let realDesktop: CGImage? = {
+        guard let src = CGImageSourceCreateWithURL(URL(fileURLWithPath: "video/assets/desktop-crop.png") as CFURL, nil) else { return nil }
+        return CGImageSourceCreateImageAtIndex(src, 0, nil)
+    }()
+
     static func compose(_ img: CGImage, t: Double) -> CGImage? {
         guard let ctx = CGContext(data: nil, width: outW, height: outH, bitsPerComponent: 8, bytesPerRow: 0,
                                   space: CGColorSpace(name: CGColorSpace.sRGB)!,
                                   bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
         ctx.interpolationQuality = .high
+        if let bg = realDesktop {
+            // 按当前镜头把真实桌面的对应区域铺满画面
+            let cam = cameraAt(t)
+            let hh = CGFloat(cam.z), hw = hh * 16 / 9
+            let k = CGFloat(outH) / (2 * hh)
+            ctx.draw(bg, in: CGRect(x: -(CGFloat(cam.x) - hw) * k, y: -(CGFloat(cam.y) - hh) * k, width: W * k, height: H * k))
+        }
         ctx.draw(img, in: CGRect(x: 0, y: 0, width: outW, height: outH))
         NSGraphicsContext.saveGraphicsState()
         NSGraphicsContext.current = NSGraphicsContext(cgContext: ctx, flipped: false)
@@ -587,7 +594,7 @@ final class FrameRenderer {
         pass.colorAttachments[0].texture = texture
         pass.colorAttachments[0].loadAction = .clear
         pass.colorAttachments[0].storeAction = .store
-        pass.colorAttachments[0].clearColor = MTLClearColorMake(1, 1, 1, 1)
+        pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, Demo.realDesktop == nil ? 1 : 0)
         renderer.render(atTime: 0, viewport: CGRect(x: 0, y: 0, width: width, height: height), commandBuffer: cb, passDescriptor: pass)
         guard let blit = cb.makeBlitCommandEncoder() else { return nil }
         blit.copy(from: texture, sourceSlice: 0, sourceLevel: 0, sourceOrigin: MTLOrigin(x: 0, y: 0, z: 0),
