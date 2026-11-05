@@ -340,9 +340,11 @@ final class PipRig: PetRig {
         bodyGroup.position = SCNVector3(0, pose.bob, 0)
         // 身体整体朝鼠标方向微微倾斜，比只转眼珠明显得多
         // 没有脖子：转头、歪头、点头都由整个身体做（幅度打折），脸永远贴在身上
-        bodyGroup.eulerAngles = SCNVector3(pose.headPitch * 0.5 - gaze.y * 0.03,
-                                           pose.bodyYaw + pose.headYaw * 0.5 + gaze.x * 0.08,
-                                           -pose.bodyLean - gaze.x * 0.05 - pose.headTilt * 0.6)
+        // 看鼠标时，自己发呆的左右张望要让位，否则会把「看你」盖掉
+        let look = min(1, hypot(gaze.x, gaze.y))
+        bodyGroup.eulerAngles = SCNVector3(pose.headPitch * 0.5 - gaze.y * 0.16,
+                                           pose.bodyYaw + pose.headYaw * 0.5 * (1 - look) + gaze.x * 0.38,
+                                           -pose.bodyLean - gaze.x * 0.08 - pose.headTilt * 0.6 * (1 - look * 0.5))
 
 
         armPivotL.eulerAngles = SCNVector3(0, 0, -pose.armLeft)
@@ -374,8 +376,8 @@ final class PipRig: PetRig {
 
         // 眼珠朝鼠标方向滑过去（这个角色没有眼白，靠珠子挪位表达视线）。
         // 两只眼的 z 相同，滑多远都不会被脸切掉，大小一只是对得上的。
-        let lookX = gaze.x * 2.8
-        let lookY = gaze.y * 1.9
+        let lookX = gaze.x * 4.6
+        let lookY = gaze.y * 3.2
         for (g, b) in [(eyeGroupL, eyeBaseL), (eyeGroupR, eyeBaseR)] {
             let ex = b.x + lookX, ey = b.y + lookY
             stick(g, x: ex, y: ey, lift: faceLift(atX: ex, y: ey) + 0.7)

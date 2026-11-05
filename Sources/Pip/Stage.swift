@@ -415,8 +415,8 @@ final class Stage {
         let dx = point.x - faceX
         let dy = point.y - faceY
         let engaged = hypot(dx, dy) < 320
-        let targetX = engaged ? max(-1, min(1, dx / 150)) : 0
-        let targetY = engaged ? max(-1, min(1, dy / 150)) : 0
+        let targetX = engaged ? max(-1, min(1, dx / 110)) : 0
+        let targetY = engaged ? max(-1, min(1, dy / 110)) : 0
 
         gaze.x += (targetX - gaze.x) * 0.22
         gaze.y += (targetY - gaze.y) * 0.22
