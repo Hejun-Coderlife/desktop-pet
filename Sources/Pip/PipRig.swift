@@ -5,8 +5,8 @@ import SceneKit
 
 enum PipPalette {
     static let fur       = NSColor.hex(0xE4D7C5)   // 暖米色绒毛（整体基调）
-    static let furRoot   = NSColor.hex(0xC9B3A6)   // 毛根：偏粉的灰米色（原版那种柔和的玫瑰灰褐）
-    static let furTip    = NSColor.hex(0xEFE4DC)   // 毛尖：更浅、更白
+    static let furRoot   = NSColor.hex(0xD4C3B9)   // 毛根：偏粉的灰米色（原版那种柔和的玫瑰灰褐）
+    static let furTip    = NSColor.hex(0xF6EEE9)   // 毛尖：更浅、更白
     static let furRim    = NSColor.hex(0xFFF3EE)   // 逆光绒边：近白
     static let face      = NSColor.hex(0xF3EADD)   // 更亮的奶油脸
     static let cheek     = NSColor.hex(0xF2A7A7)   // 腮红：更粉
@@ -274,7 +274,7 @@ final class PipRig: PetRig {
             eyeMat.specular.contents = NSColor(white: 0.9, alpha: 1)
             eyeMat.shininess = 0.9
             let eye = sphereNode(radius: 2.35, material: eyeMat)
-            eye.scale = SCNVector3(0.95, 1.1, 0.5)
+            eye.scale = SCNVector3(0.95, 0.98, 0.5)   // 竖向略短一点，接近圆眼
             group.addChildNode(eye)
 
             let shine = sphereNode(radius: 0.6, material: makeSmoothMaterial(PipPalette.shine))
