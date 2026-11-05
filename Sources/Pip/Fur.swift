@@ -48,11 +48,19 @@ enum Fur {
     #pragma arguments
     float furH;
     float furLen;
+    float4 faceHole;
     #pragma varyings
     float3 furModelPos;
     #pragma body
     out.furModelPos = _geometry.position.xyz;
-    float off = furH * furLen;
+    // 脸四周一圈毛更长，隆起成兜帽的帽沿 → 有毛的部分明显高于脸
+    float boost = 0.0;
+    if (faceHole.z > 0.0 && _geometry.position.z > 0.0) {
+        float2 fd = abs((_geometry.position.xy - faceHole.xy) / faceHole.zw);
+        float fr = pow(pow(fd.x, 2.35) + pow(fd.y, 2.35), 1.0 / 2.35);
+        boost = 1.0 - smoothstep(1.0, 1.5, fr);
+    }
+    float off = furH * furLen * (1.0 + 1.0 * boost);
     _geometry.position.xyz += _geometry.normal * off;
     _geometry.position.y -= furH * furH * furLen * 0.12;   // 少下垂：垂太多像淋湿
     """

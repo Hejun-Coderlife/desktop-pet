@@ -69,7 +69,7 @@ final class PipRig: PetRig {
     }
 
     /// 脸是从毛里鼓出来的一团（中间高、边缘低），不是平贴的一层
-    private let faceBulge: CGFloat = 3.6
+    private let faceBulge: CGFloat = 1.3   // 微微鼓，但始终低于四周的毛（毛圈 3.3～6.6）
     private func faceLift(atX x: CGFloat, y: CGFloat) -> CGFloat {
         let dx = abs(x / (faceWidth / 2)), dy = abs((y - faceCenterY) / (faceHeight / 2))
         let r = pow(pow(dx, 2.35) + pow(dy, 2.35), 1 / 2.35)
@@ -422,11 +422,15 @@ final class PipRig: PetRig {
                 var b = top.b + (bottom.b - top.b) * t
 
                 // 脸和毛的接缝处一道淡淡的接触阴影（很窄），轮廓更利落、更立体
-                let v = min(1, max(0, (rho - 0.90) / 0.10))
-                let shade = v * v * 0.16
-                r *= 1 - shade
-                g *= 1 - shade * 1.05
-                b *= 1 - shade * 1.08
+                // 帽沿投在脸上的阴影：靠边缘才有，上边缘（ny<0，被头顶的毛挡光）更深更宽
+                let topness = max(0, -ny)
+                let start = 0.86 - 0.10 * topness
+                let v = min(1, max(0, (rho - start) / (1 - start)))
+                // 很淡、偏暖（原版接缝几乎没有暗线，高低感主要靠隆起的毛圈）
+                let shade = v * v * (0.04 + 0.04 * topness)
+                r *= 1 - shade * 0.7
+                g *= 1 - shade
+                b *= 1 - shade * 1.1
 
                 let index = (y * size + x) * 4
                 pixels[index]     = UInt8(max(0, min(255, r * alpha * 255)))
@@ -491,7 +495,7 @@ final class PipRig: PetRig {
                                 elements: [SCNGeometryElement(indices: idx, primitiveType: .triangles)])
         let material = SCNMaterial()
         material.lightingModel = .lambert   // 有光影的软陶鼓包（以前是 constant 平涂，像贴纸）
-        material.ambient.contents = NSColor(white: 0.55, alpha: 1)
+        material.ambient.contents = NSColor(white: 0.8, alpha: 1)   // 边缘斜面别暗成一圈灰
         material.diffuse.contents = Self.faceImage
         material.blendMode = .alpha
         material.isDoubleSided = true
