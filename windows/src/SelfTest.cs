@@ -144,6 +144,7 @@ namespace Pip
                 stage.Snapshot(Path.Combine(dir, name.Replace(".png", "-window.png")));
             }
             bool sawFalling = false, sawStanding = false;
+            var dragTo = new Win32.POINT(0, 0);
             steps.Add((2.0, () =>
             {
                 Line("  2 秒：" + stage.Describe());
@@ -213,12 +214,26 @@ namespace Pip
                 foreach (var p in plats) if (Math.Abs(p.Y - 520) < 30 && p.X1 - p.X0 > 200) target = p;
                 if (!target.HasValue) { Fail("没认出记事本窗口的顶边"); return; }
                 Line("  [通过] 认出了记事本的顶边 " + target.Value);
-                // 直接在世界里把它拎到窗口正上方松手
+                // 用真鼠标：按住肚子 → 分几步拖到记事本正上方 → 慢慢松手
                 var t = target.Value;
-                stage.World.BeginGrab(stage.World.X, stage.World.Y + 70);
-                stage.World.Drag((t.X0 + t.X1) / 2, t.Y + 140);
+                var from = PetScreen(0, 40);
+                dragTo = new Win32.POINT(s.Monitor.Left + (int)((t.X0 + t.X1) / 2 * s.Scale), s.Monitor.Bottom - (int)((t.Y + 110) * s.Scale));
+                SetCursorPos(from.X, from.Y);
             }));
-            steps.Add((7.4, () => stage.World.EndGrab()));
+            steps.Add((7.1, () => { if (dragTo.X != 0) mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, UIntPtr.Zero); }));
+            for (int i = 1; i <= 6; i++)
+            {
+                int k = i;
+                steps.Add((7.1 + k * 0.05, () =>
+                {
+                    if (dragTo.X == 0) return;
+                    Win32.GetCursorPos(out var c);
+                    int n = 7 - k;   // 剩下几步，每步走剩余距离的 1/n
+                    SetCursorPos(c.X + (dragTo.X - c.X) / n, c.Y + (dragTo.Y - c.Y) / n);
+                }));
+            }
+            steps.Add((7.5, () => { if (stage.World.State != PetState.Grabbed) Line($"  拖到记事本上方时状态：{stage.World.State.Name()}"); }));
+            steps.Add((7.6, () => { if (dragTo.X != 0) mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, UIntPtr.Zero); }));
             steps.Add((9.0, () =>
             {
                 sawStanding = stage.World.OnPlatform;
