@@ -17,6 +17,8 @@ struct Pose {
     var bob: CGFloat = 0
     /// 身体前倾（弧度，正 = 朝右倒）
     var bodyLean: CGFloat = 0
+    /// 身体朝行进方向侧转（弧度，正 = 脸转向朝向那一侧）；正面相机下，不侧转就看不到腿前后迈
+    var bodyYaw: CGFloat = 0
 
     /// 头部三个轴
     var headPitch: CGFloat = 0
@@ -28,6 +30,12 @@ struct Pose {
     var armRight: CGFloat = 0
     var legLeft: CGFloat = 0
     var legRight: CGFloat = 0
+    /// 腿往外侧踢（弧度，正面看得见的那种乱蹬）
+    var legSideLeft: CGFloat = 0
+    var legSideRight: CGFloat = 0
+    /// 抬脚高度（点）
+    var liftLeft: CGFloat = 0
+    var liftRight: CGFloat = 0
 
     /// 0 = 睁眼，1 = 闭眼
     var blink: CGFloat = 0

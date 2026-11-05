@@ -31,8 +31,8 @@ enum SceneFactory {
         // 环境光（拉高，做出柔和的漫反射）
         let ambient = SCNLight()
         ambient.type = .ambient
-        ambient.color = NSColor(srgbRed: 0.96, green: 0.94, blue: 0.92, alpha: 1)
-        ambient.intensity = 600
+        ambient.color = NSColor(srgbRed: 1.0, green: 0.95, blue: 0.90, alpha: 1)
+        ambient.intensity = 380
         let ambientNode = SCNNode()
         ambientNode.light = ambient
         scene.rootNode.addChildNode(ambientNode)
@@ -40,8 +40,8 @@ enum SceneFactory {
         // 主光：左上往前打
         let key = SCNLight()
         key.type = .directional
-        key.color = NSColor(white: 1.0, alpha: 1)
-        key.intensity = 640
+        key.color = NSColor(srgbRed: 1.0, green: 0.93, blue: 0.84, alpha: 1)   // 暖主光
+        key.intensity = 900
         let keyNode = SCNNode()
         keyNode.light = key
         keyNode.eulerAngles = SCNVector3(-0.55, -0.5, 0)
@@ -50,8 +50,8 @@ enum SceneFactory {
         // 补光：右后方一点暖色
         let fill = SCNLight()
         fill.type = .directional
-        fill.color = NSColor(srgbRed: 1.0, green: 0.96, blue: 0.92, alpha: 1)
-        fill.intensity = 260
+        fill.color = NSColor(srgbRed: 0.82, green: 0.88, blue: 1.0, alpha: 1)    // 冷补光，拉开冷暖层次
+        fill.intensity = 200
         let fillNode = SCNNode()
         fillNode.light = fill
         fillNode.eulerAngles = SCNVector3(0.35, 0.9, 0)
@@ -61,7 +61,7 @@ enum SceneFactory {
         let rim = SCNLight()
         rim.type = .directional
         rim.color = NSColor(white: 1.0, alpha: 1)
-        rim.intensity = 150
+        rim.intensity = 320
         let rimNode = SCNNode()
         rimNode.light = rim
         rimNode.eulerAngles = SCNVector3(-0.2, 2.5, 0)

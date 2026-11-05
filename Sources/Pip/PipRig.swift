@@ -4,7 +4,10 @@ import SceneKit
 // MARK: - 配色（米白绒毛 + 奶油脸）
 
 enum PipPalette {
-    static let fur       = NSColor.hex(0xE4D7C5)   // 暖米色绒毛
+    static let fur       = NSColor.hex(0xE4D7C5)   // 暖米色绒毛（整体基调）
+    static let furRoot   = NSColor.hex(0xCDB89F)   // 毛根：更深，做出绒毛的厚度
+    static let furTip    = NSColor.hex(0xF4ECE0)   // 毛尖：更浅
+    static let furRim    = NSColor.hex(0xFFE9CC)   // 逆光绒边：暖
     static let face      = NSColor.hex(0xF3EADD)   // 更亮的奶油脸
     static let cheek     = NSColor.hex(0xE9A296)   // 腮红
     static let eye       = NSColor.hex(0x17191F)   // 近黑，略偏冷
@@ -72,6 +75,8 @@ final class PipRig: PetRig {
     ]
 
     private lazy var furMaterial: SCNMaterial = makeFurMaterial(PipPalette.fur)
+    private let furColors = Fur.Colors(root: PipPalette.furRoot, tip: PipPalette.furTip, rim: PipPalette.furRim)
+    private var legBaseY: CGFloat = 12
 
     var node: SCNNode { root }
 
@@ -87,9 +92,10 @@ final class PipRig: PetRig {
         squashNode.addChildNode(bodyGroup)
 
         // 身体：一条轮廓线转一圈出来的钟形绒毛（兜帽和身体连成一片，没有接缝）
-        bodyGroup.addChildNode(Lathe.node(profile: Self.bodyProfile,
-                                          segments: 96,
-                                          material: furMaterial))
+        let body = Lathe.node(profile: Self.bodyProfile, segments: 96, material: furMaterial)
+        // 周长约 188 点、高约 82 点 → 每块贴图约 6 点见方，一根毛约 0.05 点粗
+        Fur.apply(to: body, colors: furColors, length: 4.2, tile: CGSize(width: 22, height: 10), layers: 16)
+        bodyGroup.addChildNode(body)
 
         buildLeg(pivot: legPivotL, x: -9)
         buildLeg(pivot: legPivotR, x: 9)
@@ -108,20 +114,23 @@ final class PipRig: PetRig {
         leg.position = SCNVector3(0, -4, 0)
         pivot.addChildNode(leg)
 
-        let foot = sphereNode(radius: 5.4, material: furMaterial)
-        foot.scale = SCNVector3(1.0, 0.5, 1.2)
-        foot.position = SCNVector3(0, -9, 1.2)
+        // 圆鼓鼓的小脚（不是扁圆饼），带绒毛
+        let foot = sphereNode(radius: 5.6, material: furMaterial)
+        foot.scale = SCNVector3(1.05, 0.68, 1.25)
+        foot.position = SCNVector3(0, -8.4, 1.6)
+        Fur.apply(to: foot, colors: furColors, length: 1.8, tile: CGSize(width: 7, height: 4))
         pivot.addChildNode(foot)
     }
 
     private func buildArm(pivot: SCNNode, x: CGFloat, sign: CGFloat) {
-        pivot.position = SCNVector3(x, 44, 0)
+        pivot.position = SCNVector3(x * 1.04, 44, 2)
         bodyGroup.addChildNode(pivot)
 
-        // 连指手套式的一坨绒毛手臂，一半埋进身体
-        let arm = sphereNode(radius: 7.5, material: furMaterial)
-        arm.scale = SCNVector3(1.0, 1.05, 0.9)
-        arm.position = SCNVector3(sign * 3.0, -5, 0)
+        // 短粗的圆头小爪：胶囊形，上半截埋进身体、往外下方斜着长出来，带绒毛
+        let arm = capsuleNode(radius: 6.2, height: 17, material: furMaterial)
+        arm.position = SCNVector3(sign * 4.0, -6.0, 0)
+        arm.eulerAngles = SCNVector3(0, 0, sign * 0.45)
+        Fur.apply(to: arm, colors: furColors, length: 2.6, tile: CGSize(width: 8, height: 5))
         pivot.addChildNode(arm)
     }
 
@@ -168,18 +177,17 @@ final class PipRig: PetRig {
         let topY: CGFloat = 0.8
         let dipY: CGFloat = -1.2
 
-        let steps = 11
+        // 二次贝塞尔，两端往上翘一点；扫成一根连续的「绣线」圆管
+        let steps = 24
+        var points: [SCNVector3] = []
         for i in 0...steps {
             let t = CGFloat(i) / CGFloat(steps)
-            // 二次贝塞尔，两端往上翘一点
             let oneMinus = 1 - t
-            let x = (2 * oneMinus * t * 0 + oneMinus * oneMinus * -halfWidth + t * t * halfWidth)
+            let x = oneMinus * oneMinus * -halfWidth + t * t * halfWidth
             let y = -4.2 + oneMinus * oneMinus * topY + 2 * oneMinus * t * dipY + t * t * topY
-
-            let bead = sphereNode(radius: 0.42, material: material)
-            bead.position = SCNVector3(x, y, featureZ + 0.2)
-            node.addChildNode(bead)
+            points.append(SCNVector3(x, y, featureZ + 0.2))
         }
+        node.addChildNode(Tube.node(points: points, radius: 0.42, material: material))
         return node
     }
 
@@ -199,7 +207,7 @@ final class PipRig: PetRig {
 
         bodyGroup.position = SCNVector3(0, pose.bob, 0)
         // 身体整体朝鼠标方向微微倾斜，比只转眼珠明显得多
-        bodyGroup.eulerAngles = SCNVector3(0, 0, -pose.bodyLean - gaze.x * 0.05)
+        bodyGroup.eulerAngles = SCNVector3(0, pose.bodyYaw, -pose.bodyLean - gaze.x * 0.05)
 
         headPivot.eulerAngles = SCNVector3(pose.headPitch - gaze.y * 0.04,
                                            pose.headYaw + gaze.x * 0.12,
@@ -208,8 +216,10 @@ final class PipRig: PetRig {
         armPivotL.eulerAngles = SCNVector3(0, 0, -pose.armLeft)
         armPivotR.eulerAngles = SCNVector3(0, 0, pose.armRight)
 
-        legPivotL.eulerAngles = SCNVector3(pose.legLeft, 0, 0)
-        legPivotR.eulerAngles = SCNVector3(pose.legRight, 0, 0)
+        legPivotL.eulerAngles = SCNVector3(pose.legLeft, 0, -pose.legSideLeft)
+        legPivotR.eulerAngles = SCNVector3(pose.legRight, 0, pose.legSideRight)
+        legPivotL.position.y = legBaseY + pose.liftLeft
+        legPivotR.position.y = legBaseY + pose.liftRight
 
         let eyeScale = SCNVector3(1, max(0.08, 1 - pose.blink * 0.95), 1)
         eyeGroupL.scale = eyeScale
@@ -234,9 +244,16 @@ final class PipRig: PetRig {
 
         let top = (r: 0.996, g: 0.980, b: 0.957)      // 上：近白奶油
         let bottom = (r: 0.960, g: 0.925, b: 0.874)   // 下：略暖沉
-        let rimTone = (r: 0.878, g: 0.796, b: 0.686)  // 边缘：暖褐，像绒毛投下来的暗处
-        let featherStart: Double = 0.88               // 只有最外一圈化开
+        let rimTone = (r: 0.930, g: 0.880, b: 0.810)  // 边缘：往绒毛色收（不再是发脏的灰褐）
+        let featherStart: Double = 0.80               // 最外一圈是「被绒毛盖住」的毛边
         let featherEnd: Double = 1.0
+        // 每个角度一根毛：决定这根毛盖进脸里多深 → 边缘是参差的绒毛，而不是一圈模糊渐变
+        var strands = [Double](repeating: 0, count: 720)
+        var seed: UInt64 = 0x2545F4914F6CDD1D
+        for i in 0..<strands.count {
+            seed = seed &* 6364136223846793005 &+ 1442695040888963407
+            strands[i] = Double((seed >> 33) & 0xFFFF) / Double(0xFFFF)
+        }
 
         for y in 0..<size {
             for x in 0..<size {
@@ -245,9 +262,14 @@ final class PipRig: PetRig {
                 let rho = sqrt(nx * nx + ny * ny)
 
                 var alpha = 1.0
+                var furCover = 0.0
                 if rho > featherStart {
                     let t = min(1, (rho - featherStart) / (featherEnd - featherStart))
-                    alpha = 1 - t * t * (3 - 2 * t)   // smoothstep，边缘慢慢化开
+                    let angle = atan2(ny, nx) + .pi
+                    let k = Int(angle / (2 * .pi) * Double(strands.count)) % strands.count
+                    let reach = 0.25 + 0.75 * strands[k]          // 这根毛盖进来多深
+                    if t > 1 - reach { furCover = min(1, (t - (1 - reach)) / max(reach, 0.01) * 1.6) }
+                    alpha = 1 - pow(t, 6)                          // 只在最外缘才真正透明
                 }
 
                 let t = (ny + 1) / 2
@@ -256,11 +278,16 @@ final class PipRig: PetRig {
                 var b = top.b + (bottom.b - top.b) * t
 
                 // 越靠边缘越往暖褐收，读起来是脸的弧度转进去，而不是一张发光的白纸
-                let v = min(1, max(0, (rho - 0.42) / 0.58))
-                let shade = v * v * (3 - 2 * v) * 0.55
+                let v = min(1, max(0, (rho - 0.55) / 0.45))
+                let shade = v * v * (3 - 2 * v) * 0.25
                 r += (rimTone.r - r) * shade
                 g += (rimTone.g - g) * shade
                 b += (rimTone.b - b) * shade
+                // 盖进来的绒毛：用毛尖色
+                let tip = (r: 0.957, g: 0.925, b: 0.878)
+                r += (tip.r - r) * furCover
+                g += (tip.g - g) * furCover
+                b += (tip.b - b) * furCover
 
                 let index = (y * size + x) * 4
                 pixels[index]     = UInt8(max(0, min(255, r * alpha * 255)))
