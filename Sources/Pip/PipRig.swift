@@ -412,35 +412,21 @@ final class PipRig: PetRig {
                 let pw = 2.35   // 横向的圆头椭圆：比正椭圆两头更圆（正椭圆贴在弧面上两头会显尖）
                 let rho = pow(pow(abs(nx), pw) + pow(abs(ny), pw), 1 / pw)
 
+                // 清楚的轮廓：只留最外 1.5% 做抗锯齿，不再羽化、不再画「盖进来的毛」
                 var alpha = 1.0
-                var furCover = 0.0
-                if rho > featherStart {
-                    let t = min(1, (rho - featherStart) / (featherEnd - featherStart))
-                    let angle = atan2(ny, nx) + .pi
-                    let k = Int(angle / (2 * .pi) * Double(strands.count)) % strands.count
-                    let reach = 0.25 + 0.75 * strands[k]          // 这根毛盖进来多深
-                    // 毛只从头顶和两侧盖进来；下半圈（ny > 0.25，图片里 y 向下）是干净的下巴
-                    let hoodMask = max(0, min(1, (0.25 - ny) / 0.35))
-                    if t > 1 - reach { furCover = min(1, (t - (1 - reach)) / max(reach, 0.01) * 1.6) * hoodMask }
-                    alpha = 1 - pow(t, 6)                          // 只在最外缘才真正透明
-                }
+                if rho > 0.985 { alpha = max(0, 1 - (rho - 0.985) / 0.015) }
 
                 let t = (ny + 1) / 2
                 var r = top.r + (bottom.r - top.r) * t
                 var g = top.g + (bottom.g - top.g) * t
                 var b = top.b + (bottom.b - top.b) * t
 
-                // 越靠边缘越往暖褐收，读起来是脸的弧度转进去，而不是一张发光的白纸
-                let v = min(1, max(0, (rho - 0.55) / 0.45))
-                let shade = v * v * (3 - 2 * v) * 0.25
-                r += (rimTone.r - r) * shade
-                g += (rimTone.g - g) * shade
-                b += (rimTone.b - b) * shade
-                // 盖进来的绒毛：用毛尖色
-                let tip = (r: 0.957, g: 0.925, b: 0.878)
-                r += (tip.r - r) * furCover
-                g += (tip.g - g) * furCover
-                b += (tip.b - b) * furCover
+                // 脸和毛的接缝处一道淡淡的接触阴影（很窄），轮廓更利落、更立体
+                let v = min(1, max(0, (rho - 0.90) / 0.10))
+                let shade = v * v * 0.16
+                r *= 1 - shade
+                g *= 1 - shade * 1.05
+                b *= 1 - shade * 1.08
 
                 let index = (y * size + x) * 4
                 pixels[index]     = UInt8(max(0, min(255, r * alpha * 255)))

@@ -69,7 +69,7 @@ enum Fur {
     if (furH > 0.0 && faceHole.z > 0.0 && in.furModelPos.z > 0.0) {
         float2 d = abs((in.furModelPos.xy - faceHole.xy) / faceHole.zw);
         float r = pow(pow(d.x, 2.35) + pow(d.y, 2.35), 1.0 / 2.35);
-        if (r < 0.96) { discard_fragment(); }
+        if (r < 1.0) { discard_fragment(); }   // 禁区和脸一样大：毛到脸边干脆停住
     }
     float strand = _surface.emission.r;
     if (furH > 0.0 && strand < furH) { discard_fragment(); }
