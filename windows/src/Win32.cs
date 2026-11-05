@@ -83,7 +83,10 @@ namespace Pip
         [DllImport("gdi32.dll")] public static extern bool SetPixelFormat(IntPtr hdc, int format, ref PIXELFORMATDESCRIPTOR pfd);
 
         // WGL
-        [DllImport("opengl32.dll")] public static extern IntPtr wglCreateContext(IntPtr hdc);
+        [DllImport("opengl32.dll", SetLastError = true)] public static extern IntPtr wglCreateContext(IntPtr hdc);
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] public static extern IntPtr GetModuleHandle(string name);
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] public static extern int GetModuleFileName(IntPtr h, System.Text.StringBuilder sb, int size);
+        [DllImport("gdi32.dll")] public static extern int DescribePixelFormat(IntPtr hdc, int fmt, uint size, ref PIXELFORMATDESCRIPTOR pfd);
         [DllImport("opengl32.dll")] public static extern bool wglMakeCurrent(IntPtr hdc, IntPtr ctx);
         [DllImport("opengl32.dll")] public static extern bool wglDeleteContext(IntPtr ctx);
         [DllImport("opengl32.dll", CharSet = CharSet.Ansi)] public static extern IntPtr wglGetProcAddress(string name);

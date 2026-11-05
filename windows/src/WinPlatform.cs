@@ -19,10 +19,24 @@ namespace Pip
         static IntPtr hdc, ctx;
         public static string Error;
 
+        static string Diag(int fmt)
+        {
+            int err = Marshal.GetLastWin32Error();
+            var sb = new StringBuilder(260);
+            Win32.GetModuleFileName(Win32.GetModuleHandle("opengl32.dll"), sb, 260);
+            var d = new Win32.PIXELFORMATDESCRIPTOR();
+            Win32.DescribePixelFormat(hdc, fmt, (uint)Marshal.SizeOf(typeof(Win32.PIXELFORMATDESCRIPTOR)), ref d);
+            return $"（错误码 {err}，格式 #{fmt} flags=0x{d.dwFlags:X} 颜色{d.cColorBits}/透明{d.cAlphaBits}/深度{d.cDepthBits}，opengl32={sb}）";
+        }
+
         public static bool Init()
         {
             try
             {
+                // exe 旁边放了 opengl32.dll（如 CI 的 Mesa 软件渲染）就按完整路径先载入，
+                // 免得 gdi32 的 ChoosePixelFormat 抢先从 System32 载入系统那份
+                var local = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "opengl32.dll");
+                if (System.IO.File.Exists(local)) Win32.LoadLibrary(local);
                 host = new System.Windows.Forms.Form { ShowInTaskbar = false, FormBorderStyle = System.Windows.Forms.FormBorderStyle.None, Size = new Size(16, 16) };
                 var h = host.Handle;   // 不 Show，只要句柄和 DC
                 hdc = Win32.GetDC(h);
@@ -35,7 +49,7 @@ namespace Pip
                 int fmt = Win32.ChoosePixelFormat(hdc, ref pfd);
                 if (fmt == 0 || !Win32.SetPixelFormat(hdc, fmt, ref pfd)) { Error = "设置像素格式失败"; return false; }
                 var legacy = Win32.wglCreateContext(hdc);
-                if (legacy == IntPtr.Zero || !Win32.wglMakeCurrent(hdc, legacy)) { Error = "创建 OpenGL 上下文失败"; return false; }
+                if (legacy == IntPtr.Zero || !Win32.wglMakeCurrent(hdc, legacy)) { Error = "创建 OpenGL 上下文失败" + Diag(fmt); return false; }
                 ctx = legacy;
                 // 能拿到 3.3 core 就用 core（Mesa 等驱动的兼容模式版本很低）
                 var p = Win32.wglGetProcAddress("wglCreateContextAttribsARB");
