@@ -422,15 +422,31 @@ final class PipRig: PetRig {
                 var b = top.b + (bottom.b - top.b) * t
 
                 // 脸和毛的接缝处一道淡淡的接触阴影（很窄），轮廓更利落、更立体
-                // 帽沿投在脸上的阴影：靠边缘才有，上边缘（ny<0，被头顶的毛挡光）更深更宽
+                // 毛自然投下的影子：紧贴边缘一圈很窄的暖色影，宽窄按一根根毛参差（不是均匀的灰带）；
+                // 上边缘被头顶的毛挡光，影子略宽。最外缘再搭一圈细细的浅色毛尖。
+                let angle = atan2(ny, nx) + .pi
+                let k = Int(angle / (2 * .pi) * Double(strands.count)) % strands.count
+                let k2 = (k + 1) % strands.count
+                let hair = strands[k] * 0.6 + strands[k2] * 0.4
                 let topness = max(0, -ny)
-                let start = 0.86 - 0.10 * topness
-                let v = min(1, max(0, (rho - start) / (1 - start)))
-                // 很淡、偏暖（原版接缝几乎没有暗线，高低感主要靠隆起的毛圈）
-                let shade = v * v * (0.04 + 0.04 * topness)
-                r *= 1 - shade * 0.7
-                g *= 1 - shade
-                b *= 1 - shade * 1.1
+                let shadowWidth = (0.035 + 0.03 * topness) * (0.6 + 0.8 * hair)
+                let inside = 1 - rho                                 // 0 在边缘
+                if inside < shadowWidth {
+                    let u = 1 - inside / shadowWidth                 // 越靠边越深
+                    let shade = u * u * 0.22
+                    let warm = (r: 0.80, g: 0.70, b: 0.64)           // 毛根色调，不是灰
+                    r += (warm.r - r) * shade
+                    g += (warm.g - g) * shade
+                    b += (warm.b - b) * shade
+                }
+                let fringe = 0.012 + 0.02 * hair * (0.4 + 0.6 * topness)
+                if inside < fringe {
+                    let tip = (r: 0.965, g: 0.935, b: 0.915)         // 毛尖色
+                    let f = 1 - inside / fringe
+                    r += (tip.r - r) * f
+                    g += (tip.g - g) * f
+                    b += (tip.b - b) * f
+                }
 
                 let index = (y * size + x) * 4
                 pixels[index]     = UInt8(max(0, min(255, r * alpha * 255)))
@@ -482,6 +498,30 @@ final class PipRig: PetRig {
                 if n.z < 0 { n = SCNVector3(-n.x, -n.y, -n.z) }
                 nor[k] = n
             }
+        }
+        // 身体轮廓是折线插值，曲率在折点突变 → 脸上会出现一条条横向明暗纹（看着像脏印）。
+        // 把法线在网格上反复做邻域平均，磨成一个光滑的鼓包。
+        for _ in 0..<10 {
+            var smoothed = nor
+            for j in 0...rows {
+                for i in 0...cols {
+                    var acc = SCNVector3(0, 0, 0)
+                    for (dj, di) in [(0, 0), (-1, 0), (1, 0), (0, -1), (0, 1)] {
+                        let jj = min(max(j + dj, 0), rows), ii = min(max(i + di, 0), cols)
+                        let n = nor[jj * (cols + 1) + ii]
+                        acc = SCNVector3(acc.x + n.x, acc.y + n.y, acc.z + n.z)
+                    }
+                    let l = max(0.0001, sqrt(acc.x * acc.x + acc.y * acc.y + acc.z * acc.z))
+                    smoothed[j * (cols + 1) + i] = SCNVector3(acc.x / l, acc.y / l, acc.z / l)
+                }
+            }
+            nor = smoothed
+        }
+        // 法线往正前方收一些：保留一点鼓包的立体，但两侧不会暗成一圈（旁边的毛是亮的，一对比就显脏）
+        nor = nor.map { n in
+            let v = SCNVector3(n.x * 0.45, n.y * 0.45, n.z + 0.6)
+            let l = max(0.0001, sqrt(v.x * v.x + v.y * v.y + v.z * v.z))
+            return SCNVector3(v.x / l, v.y / l, v.z / l)
         }
         var idx: [UInt32] = []
         for j in 0..<rows {
