@@ -31,8 +31,8 @@ enum SceneFactory {
         // 环境光（拉高，做出柔和的漫反射）
         let ambient = SCNLight()
         ambient.type = .ambient
-        ambient.color = NSColor(white: 0.92, alpha: 1)
-        ambient.intensity = 780
+        ambient.color = NSColor(srgbRed: 0.96, green: 0.94, blue: 0.92, alpha: 1)
+        ambient.intensity = 660
         let ambientNode = SCNNode()
         ambientNode.light = ambient
         scene.rootNode.addChildNode(ambientNode)
@@ -41,7 +41,7 @@ enum SceneFactory {
         let key = SCNLight()
         key.type = .directional
         key.color = NSColor(white: 1.0, alpha: 1)
-        key.intensity = 520
+        key.intensity = 700
         let keyNode = SCNNode()
         keyNode.light = key
         keyNode.eulerAngles = SCNVector3(-0.55, -0.5, 0)
@@ -79,7 +79,7 @@ enum SceneFactory {
     // MARK: 脚底接触阴影（竖直面片 + 径向渐变，正交正面看就是椭圆）
 
     static func makeShadowNode() -> SCNNode {
-        let plane = SCNPlane(width: 54, height: 19)
+        let plane = SCNPlane(width: 60, height: 20)
         let material = SCNMaterial()
         material.lightingModel = .constant
         material.diffuse.contents = shadowImage()
