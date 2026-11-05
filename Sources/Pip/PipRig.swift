@@ -94,7 +94,7 @@ final class PipRig: PetRig {
         // 身体：一条轮廓线转一圈出来的钟形绒毛（兜帽和身体连成一片，没有接缝）
         let body = Lathe.node(profile: Self.bodyProfile, segments: 96, material: furMaterial)
         // 周长约 188 点、高约 82 点 → 每块贴图约 6 点见方，一根毛约 0.05 点粗
-        Fur.apply(to: body, colors: furColors, length: 4.2, tile: CGSize(width: 22, height: 10), layers: 16)
+        Fur.apply(to: body, colors: furColors, length: 6.2, tile: CGSize(width: 18, height: 8), layers: 20)
         bodyGroup.addChildNode(body)
 
         buildLeg(pivot: legPivotL, x: -9)
@@ -130,7 +130,7 @@ final class PipRig: PetRig {
         let arm = capsuleNode(radius: 6.2, height: 17, material: furMaterial)
         arm.position = SCNVector3(sign * 4.0, -6.0, 0)
         arm.eulerAngles = SCNVector3(0, 0, sign * 0.45)
-        Fur.apply(to: arm, colors: furColors, length: 2.6, tile: CGSize(width: 8, height: 5))
+        Fur.apply(to: arm, colors: furColors, length: 3.4, tile: CGSize(width: 7, height: 4), layers: 16)
         pivot.addChildNode(arm)
     }
 
