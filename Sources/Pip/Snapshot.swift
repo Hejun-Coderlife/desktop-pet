@@ -48,15 +48,15 @@ enum Snapshot {
     // MARK: 五种姿势的对照图（自己检查动画用）
 
     static func runSheet(outputPath: String) {
-        let width = 1600
-        let height = 500
+        let width = 2000
+        let height = 560
         let built = SceneFactory.makeScene(viewportSize: CGSize(width: width, height: height))
-        built.camera.camera?.orthographicScale = 200
-        built.camera.position = SCNVector3(0, 120, 900)
+        built.camera.camera?.orthographicScale = 130
+        built.camera.position = SCNVector3(0, 118, 900)
         built.camera.eulerAngles = SCNVector3(0, 0, 0)
 
         let worldSize = CGSize(width: 4000, height: 900)
-        let xs: [CGFloat] = [-400, -200, 0, 200, 400]
+        let xs: [CGFloat] = [-340, -170, 0, 170, 340]
 
         let idle = PetWorld(size: worldSize, groundY: 0, seed: 1)
         idle.preview(state: .idle, time: 1.2, feet: CGPoint(x: xs[0], y: 0))

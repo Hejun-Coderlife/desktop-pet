@@ -49,6 +49,7 @@ final class Stage {
     private var paused = false
     private var fullscreenHidden = false
     private var occluded = false
+    private var screenObserver: NSObjectProtocol?
 
     // MARK: 初始化
 
@@ -71,6 +72,7 @@ final class Stage {
         sceneView.backgroundColor = .clear
         sceneView.wantsLayer = true
         sceneView.layer?.backgroundColor = NSColor.clear.cgColor
+        sceneView.layer?.isOpaque = false
         sceneView.antialiasingMode = .multisampling4X
         sceneView.isPlaying = true
         sceneView.preferredFramesPerSecond = 30
@@ -109,6 +111,43 @@ final class Stage {
         panel.orderFrontRegardless()
         lastTickTime = CACurrentMediaTime()
         schedule(interval: 0.1)
+        // 换屏幕 / 改分辨率 / 程序坞换边都会发这个通知，收到就立刻重算地面
+        screenObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.refreshEnvironment()
+        }
+    }
+
+    // MARK: 配置自检（不开窗口，只打印关键属性）
+
+    func debugSummary() -> String {
+        var lines: [String] = []
+        lines.append("屏幕 frame      = \(rectString(currentScreen.frame))")
+        lines.append("屏幕 visibleFrame = \(rectString(currentScreen.visibleFrame))")
+        lines.append("窗口 frame      = \(rectString(panel.frame))")
+        lines.append("地面 y（窗口内）= \(String(format: "%.1f", world.groundY)) 点")
+        lines.append("窗口层级        = \(panel.level.rawValue)（程序坞 \(CGWindowLevelForKey(.dockWindow))，菜单栏 \(CGWindowLevelForKey(.mainMenuWindow))）")
+        lines.append("ignoresMouseEvents = \(panel.ignoresMouseEvents)")
+        lines.append("isOpaque        = \(panel.isOpaque)")
+        lines.append("hasShadow       = \(panel.hasShadow)")
+        lines.append("canBecomeKey    = \(panel.canBecomeKey)")
+        lines.append("collectionBehavior = \(panel.collectionBehavior.rawValue)"
+                     + "（canJoinAllSpaces=\(panel.collectionBehavior.contains(.canJoinAllSpaces))"
+                     + " stationary=\(panel.collectionBehavior.contains(.stationary))"
+                     + " fullScreenNone=\(panel.collectionBehavior.contains(.fullScreenNone))）")
+        lines.append("相机正交高度     = \(cameraNode.camera?.orthographicScale ?? 0)（窗口高的一半 = \(panel.frame.height / 2)）")
+        lines.append("角色尺寸        = \(world.halfWidth * 2) x \(world.characterHeight) 点")
+        let r = petRect()
+        lines.append("点击区域        = \(rectString(r))")
+        lines.append("当前状态        = \(world.state.displayName)，位置 \(rectString(CGRect(x: world.position.x, y: world.position.y, width: 0, height: 0)))")
+        return lines.joined(separator: "\n")
+    }
+
+    private func rectString(_ rect: CGRect) -> String {
+        String(format: "x=%.0f y=%.0f w=%.0f h=%.0f", rect.origin.x, rect.origin.y, rect.width, rect.height)
     }
 
     // MARK: 菜单栏接口

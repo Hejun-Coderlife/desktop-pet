@@ -5,43 +5,61 @@ import CoreGraphics
 
 enum SelfTest {
 
+    private struct ThrowPlan {
+        let grabStep: Int
+        let releaseStep: Int
+        let dragX: CGFloat
+        let dragY: CGFloat
+        let label: String
+    }
+
     static func run() -> Bool {
         let size = CGSize(width: 1600, height: 900)
         let groundY: CGFloat = 60
         let world = PetWorld(size: size, groundY: groundY, seed: 20261105)
         let dt: CGFloat = 1.0 / 60.0
-        let totalSteps = 600           // 10 秒
-        let grabStep = 120             // t=2.00s 拎起
-        let releaseStep = 192          // t=3.20s 松手抛出
+        let totalSteps = 600   // 10 秒
 
-        print("Pip 自检 —— 模拟 10 秒（含一次拎起 + 抛出）")
+        // 两次抓抛：第一次往上抬+往右甩；第二次往左狠甩，撞左墙反弹
+        let plans = [
+            ThrowPlan(grabStep: 120, releaseStep: 192, dragX: 250, dragY: 300, label: "往上抬+往右甩"),
+            ThrowPlan(grabStep: 360, releaseStep: 390, dragX: -900, dragY: 320, label: "往左狠甩（撞墙）")
+        ]
+
+        print("Pip 自检 —— 模拟 10 秒（两次拎起 + 抛出）")
         print("屏幕 1600x900，地面 y=60，起始位置 (\(num(world.position.x)), \(num(world.position.y)))")
         print("")
 
-        var grabAnchor = CGPoint.zero
+        var activePlan: ThrowPlan?
+        var anchor = CGPoint.zero
         var previousState = world.state
+        var previousVelocityX: CGFloat = 0
         var seenStates: Set<String> = [world.state.rawValue]
         var violations: [String] = []
         var maxLift: CGFloat = 0
         var landedAtLeastOnce = false
+        var sawWallBounce = false
 
         for step in 0...totalSteps {
             let t = CGFloat(step) * dt
 
             // —— 脚本化输入 ——
-            if step == grabStep {
-                grabAnchor = CGPoint(x: world.position.x, y: world.position.y + 70)
-                world.beginGrab(at: grabAnchor)
+            if let plan = plans.first(where: { $0.grabStep == step }) {
+                anchor = CGPoint(x: world.position.x, y: world.position.y + 70)
+                world.beginGrab(at: anchor)
+                activePlan = plan
+                print("  t=\(pad(t))s  [输入] 抓住头部附近 (\(num(anchor.x)), \(num(anchor.y)))，\(plan.label)")
             }
-            if step > grabStep && step < releaseStep {
-                let u = CGFloat(step - grabStep) / CGFloat(releaseStep - grabStep)
-                // 往上抬 + 往右甩
-                let cursor = CGPoint(x: grabAnchor.x + 250 * u,
-                                     y: grabAnchor.y + 230 * sin(u * .pi) + 70 * u)
+            if let plan = activePlan, step > plan.grabStep, step < plan.releaseStep {
+                let u = CGFloat(step - plan.grabStep) / CGFloat(plan.releaseStep - plan.grabStep)
+                let cursor = CGPoint(x: anchor.x + plan.dragX * u,
+                                     y: anchor.y + plan.dragY * (sin(u * .pi) * 0.7 + u * 0.6))
                 world.drag(to: cursor)
             }
-            if step == releaseStep {
+            if let plan = activePlan, step == plan.releaseStep {
                 world.endGrab()
+                print("  t=\(pad(t))s  [输入] 松手，抛出速度 (\(num(world.velocity.dx)), \(num(world.velocity.dy)))")
+                activePlan = nil
             }
 
             world.update(dt: dt)
@@ -57,10 +75,20 @@ enum SelfTest {
             if p.y > size.height + 0.01 {
                 violations.append("t=\(num(t)) 纵向出屏：y=\(num(p.y))")
             }
-            if p.x < 0 || p.x > size.width || p.y > size.height {
-                // 上面已经具体记录，这里不再重复
-            }
             maxLift = max(maxLift, p.y - groundY)
+
+            // —— 撞墙反弹检测 ——
+            if world.state == .falling {
+                if previousVelocityX < -40 && world.velocity.dx > 20 {
+                    sawWallBounce = true
+                    print("  t=\(pad(t))s  [检查] 左墙反弹：vx \(num(previousVelocityX)) → \(num(world.velocity.dx))，x=\(num(p.x))")
+                }
+                if previousVelocityX > 40 && world.velocity.dx < -20 {
+                    sawWallBounce = true
+                    print("  t=\(pad(t))s  [检查] 右墙反弹：vx \(num(previousVelocityX)) → \(num(world.velocity.dx))，x=\(num(p.x))")
+                }
+            }
+            previousVelocityX = world.velocity.dx
 
             // —— 状态变化 ——
             if world.state != previousState {
@@ -81,15 +109,14 @@ enum SelfTest {
 
         print("")
 
-        // —— 汇总检查 ——
         var problems: [String] = []
-
         if let first = violations.first {
             problems.append("违反不变量：\(first)（共 \(violations.count) 次）")
         }
         if !seenStates.contains("grabbed") { problems.append("没有进入「被拎起」状态") }
         if !seenStates.contains("falling") { problems.append("没有进入「下落」状态") }
         if !landedAtLeastOnce { problems.append("没有播放过「落地」动作") }
+        if !sawWallBounce { problems.append("没有观察到撞墙反弹") }
         if !(world.state == .idle || world.state == .walk) {
             problems.append("10 秒结束时没有回到闲逛，实际停在「\(world.state.displayName)」")
         }
@@ -98,9 +125,10 @@ enum SelfTest {
         }
 
         print("检查项：")
-        print("  [\(violations.isEmpty ? "通过" : "失败")] 全程没有穿过地面 / 没有出屏（\(totalSteps) 步采样）")
+        print("  [\(violations.isEmpty ? "通过" : "失败")] 全程没有穿过地面 / 没有出屏（601 步采样）")
         print("  [\(seenStates.contains("grabbed") ? "通过" : "失败")] 进入「被拎起」")
         print("  [\(seenStates.contains("falling") ? "通过" : "失败")] 松手后进入「下落」")
+        print("  [\(sawWallBounce ? "通过" : "失败")] 撞到屏幕左右边缘会反弹")
         print("  [\(landedAtLeastOnce ? "通过" : "失败")] 落地播放了落地动作（最大离地 \(Int(maxLift)) 点）")
         print("  [\((world.state == .idle || world.state == .walk) ? "通过" : "失败")] 最后回到闲逛（当前「\(world.state.displayName)」）")
         print("")

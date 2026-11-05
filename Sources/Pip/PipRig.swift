@@ -90,17 +90,17 @@ final class PipRig: PetRig {
     }
 
     private func buildLeg(pivot: SCNNode, x: CGFloat) {
-        pivot.position = SCNVector3(x, 26, 0)
+        pivot.position = SCNVector3(x, 25, 0)
         bodyGroup.addChildNode(pivot)
 
         // 胶囊顶进身体里，往下伸到脚踝，避免看起来断开
-        let leg = capsuleNode(radius: 5.0, height: 18, color: PipPalette.limb)
-        leg.position = SCNVector3(0, -12, 0)
+        let leg = capsuleNode(radius: 5.4, height: 16, color: PipPalette.limb)
+        leg.position = SCNVector3(0, -10, 0)
         pivot.addChildNode(leg)
 
-        let foot = sphereNode(radius: 5.6, color: PipPalette.limb)
-        foot.scale = SCNVector3(1.0, 0.6, 1.35)
-        foot.position = SCNVector3(0, -22.6, 1.8)
+        let foot = sphereNode(radius: 5.8, color: PipPalette.limb)
+        foot.scale = SCNVector3(1.0, 0.58, 1.3)
+        foot.position = SCNVector3(0, -21.6, 1.8)
         pivot.addChildNode(foot)
     }
 
