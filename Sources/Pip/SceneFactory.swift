@@ -32,7 +32,7 @@ enum SceneFactory {
         let ambient = SCNLight()
         ambient.type = .ambient
         ambient.color = NSColor(srgbRed: 0.96, green: 0.94, blue: 0.92, alpha: 1)
-        ambient.intensity = 660
+        ambient.intensity = 600
         let ambientNode = SCNNode()
         ambientNode.light = ambient
         scene.rootNode.addChildNode(ambientNode)
@@ -41,7 +41,7 @@ enum SceneFactory {
         let key = SCNLight()
         key.type = .directional
         key.color = NSColor(white: 1.0, alpha: 1)
-        key.intensity = 700
+        key.intensity = 640
         let keyNode = SCNNode()
         keyNode.light = key
         keyNode.eulerAngles = SCNVector3(-0.55, -0.5, 0)
@@ -61,7 +61,7 @@ enum SceneFactory {
         let rim = SCNLight()
         rim.type = .directional
         rim.color = NSColor(white: 1.0, alpha: 1)
-        rim.intensity = 190
+        rim.intensity = 150
         let rimNode = SCNNode()
         rimNode.light = rim
         rimNode.eulerAngles = SCNVector3(-0.2, 2.5, 0)

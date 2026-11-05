@@ -4,11 +4,11 @@ import SceneKit
 // MARK: - 配色（米白绒毛 + 奶油脸）
 
 enum PipPalette {
-    static let fur       = NSColor.hex(0xF7EFE2)   // 米白绒毛
-    static let face      = NSColor.hex(0xF2E6D3)   // 奶油色光滑脸
-    static let cheek     = NSColor.hex(0xE9A99C)   // 腮红
-    static let eye       = NSColor.hex(0x161513)   // 近黑
-    static let shine     = NSColor.hex(0xE8F0FF)   // 眼里的冷光
+    static let fur       = NSColor.hex(0xE4D7C5)   // 暖米色绒毛
+    static let face      = NSColor.hex(0xF3EADD)   // 更亮的奶油脸
+    static let cheek     = NSColor.hex(0xE9A296)   // 腮红
+    static let eye       = NSColor.hex(0x17191F)   // 近黑，略偏冷
+    static let shine     = NSColor.hex(0xEAF2FF)   // 眼里的冷光
     static let mouth     = NSColor.hex(0x3A3330)
 }
 
@@ -45,8 +45,10 @@ final class PipRig: PetRig {
     private let eyeGroupL = SCNNode()
     private let eyeGroupR = SCNNode()
     /// 眼珠的原始位置，眼神偏移以它为基准
-    private let eyeBaseL = CGPoint(x: -7.6, y: 2.2)
-    private let eyeBaseR = CGPoint(x: 7.6, y: 2.2)
+    private let eyeBaseL = CGPoint(x: -8.7, y: 2.0)
+    private let eyeBaseR = CGPoint(x: 8.7, y: 2.0)
+    /// 眼神方向（-1…1，已在 Stage 里按朝向翻过），由 setGaze 写入、apply 里统一生效
+    private var gaze = CGPoint.zero
     private let armPivotL = SCNNode()
     private let armPivotR = SCNNode()
     private let legPivotL = SCNNode()
@@ -122,31 +124,31 @@ final class PipRig: PetRig {
         headPivot.addChildNode(headGroup)
 
         // 光滑的脸：微微鼓出来，边缘直接陷进绒毛里
-        let faceNode = sphereNode(radius: 15.5, material: makeSmoothMaterial(PipPalette.face))
-        faceNode.scale = SCNVector3(1.0, 1.1, 0.58)
+        let faceNode = sphereNode(radius: 16.5, material: makeSmoothMaterial(PipPalette.face))
+        faceNode.scale = SCNVector3(1.03, 1.0, 0.62)
         headGroup.addChildNode(faceNode)
+
+        // 脸和绒毛交界处的一圈软阴影，把生硬的分界线化开
+        headGroup.addChildNode(faceShadeNode())
 
         // 眼睛（小椭圆 + 冷光）
         for (group, sign) in [(eyeGroupL, CGFloat(-1)), (eyeGroupR, CGFloat(1))] {
-            group.position = SCNVector3(sign * 7.6, 2.2, 7.5)   // 与 eyeBaseL/R 保持一致
+            group.position = SCNVector3(sign * 8.7, 2.0, 8.4)   // 与 eyeBaseL/R 保持一致
 
-            let eye = sphereNode(radius: 3.2, material: makeSmoothMaterial(PipPalette.eye))
-            eye.scale = SCNVector3(0.95, 1.15, 0.45)
+            let eye = sphereNode(radius: 2.9, material: makeSmoothMaterial(PipPalette.eye))
+            eye.scale = SCNVector3(0.95, 1.1, 0.5)
             group.addChildNode(eye)
 
-            let shine = sphereNode(radius: 0.8, material: makeSmoothMaterial(PipPalette.shine))
-            shine.position = SCNVector3(sign * -0.8, 1.0, 1.2)
+            let shine = sphereNode(radius: 0.62, material: makeSmoothMaterial(PipPalette.shine))
+            shine.position = SCNVector3(sign * -0.7, 0.85, 1.0)
             group.addChildNode(shine)
 
             headGroup.addChildNode(group)
         }
 
-        // 腮红
+        // 腮红：一张带径向渐变的软片，边缘化开（用球体做会是硬边椭圆）
         for sign in [CGFloat(-1), CGFloat(1)] {
-            let cheek = sphereNode(radius: 3.6, material: makeSmoothMaterial(PipPalette.cheek.withAlphaComponent(0.45)))
-            cheek.scale = SCNVector3(1.25, 0.8, 0.2)
-            cheek.position = SCNVector3(sign * 10.4, -5.0, 7.4)
-            headGroup.addChildNode(cheek)
+            headGroup.addChildNode(blushNode(sign: sign))
         }
 
         // 细弧嘴
@@ -158,26 +160,26 @@ final class PipRig: PetRig {
         let node = SCNNode()
         let material = makeSmoothMaterial(PipPalette.mouth)
 
-        let xRadius: CGFloat = 15.5
-        let yRadius: CGFloat = 17.05          // 15.5 * 1.1
-        let zRadius: CGFloat = 8.99           // 15.5 * 0.58
+        let xRadius: CGFloat = 16.5 * 1.03
+        let yRadius: CGFloat = 16.5
+        let zRadius: CGFloat = 16.5 * 0.62
 
-        let halfWidth: CGFloat = 4.6
-        let topY: CGFloat = 1.0
-        let dipY: CGFloat = -1.6
+        let halfWidth: CGFloat = 3.9
+        let topY: CGFloat = 0.8
+        let dipY: CGFloat = -1.2
 
-        let steps = 13
+        let steps = 11
         for i in 0...steps {
             let t = CGFloat(i) / CGFloat(steps)
             // 二次贝塞尔，两端往上翘一点
             let oneMinus = 1 - t
             let x = (2 * oneMinus * t * 0 + oneMinus * oneMinus * -halfWidth + t * t * halfWidth)
-            let y = oneMinus * oneMinus * topY + 2 * oneMinus * t * dipY + t * t * topY
+            let y = -4.2 + oneMinus * oneMinus * topY + 2 * oneMinus * t * dipY + t * t * topY
 
             let normalized = 1 - (x * x) / (xRadius * xRadius) - (y * y) / (yRadius * yRadius)
-            let z = zRadius * sqrt(max(0.05, normalized)) + 0.45
+            let z = zRadius * sqrt(max(0.05, normalized)) + 0.55
 
-            let bead = sphereNode(radius: 0.52, material: material)
+            let bead = sphereNode(radius: 0.42, material: material)
             bead.position = SCNVector3(x, y, z)
             node.addChildNode(bead)
         }
@@ -199,9 +201,12 @@ final class PipRig: PetRig {
         squashNode.scale = SCNVector3(sxz, sy, sxz)
 
         bodyGroup.position = SCNVector3(0, pose.bob, 0)
-        bodyGroup.eulerAngles = SCNVector3(0, 0, -pose.bodyLean)
+        // 身体整体朝鼠标方向微微倾斜，比只转眼珠明显得多
+        bodyGroup.eulerAngles = SCNVector3(0, 0, -pose.bodyLean - gaze.x * 0.05)
 
-        headPivot.eulerAngles = SCNVector3(pose.headPitch, pose.headYaw, pose.headTilt)
+        headPivot.eulerAngles = SCNVector3(pose.headPitch - gaze.y * 0.04,
+                                           pose.headYaw + gaze.x * 0.12,
+                                           pose.headTilt)
 
         armPivotL.eulerAngles = SCNVector3(0, 0, -pose.armLeft)
         armPivotR.eulerAngles = SCNVector3(0, 0, pose.armRight)
@@ -213,21 +218,105 @@ final class PipRig: PetRig {
         eyeGroupL.scale = eyeScale
         eyeGroupR.scale = eyeScale
 
+        // 眼珠朝鼠标方向滑过去（这个角色没有眼白，靠珠子挪位表达视线）
+        let lookX = gaze.x * 2.8
+        let lookY = gaze.y * 1.9
+        eyeGroupL.position = SCNVector3(eyeBaseL.x + lookX, eyeBaseL.y + lookY, 7.5)
+        eyeGroupR.position = SCNVector3(eyeBaseR.x + lookX, eyeBaseR.y + lookY, 7.5)
+
         SCNTransaction.commit()
+    }
+
+    // MARK: 脸的接缝阴影
+
+    private static let faceShadeImage: CGImage? = {
+        let size = 256
+        guard let context = CGContext(data: nil,
+                                      width: size,
+                                      height: size,
+                                      bitsPerComponent: 8,
+                                      bytesPerRow: 0,
+                                      space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        let shadow = NSColor.hex(0x6B5B49)
+        let colors = [shadow.withAlphaComponent(0).cgColor,
+                      shadow.withAlphaComponent(0).cgColor,
+                      shadow.withAlphaComponent(0.26).cgColor,
+                      shadow.withAlphaComponent(0).cgColor] as CFArray
+        guard let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                                        colors: colors,
+                                        locations: [0, 0.84, 0.93, 1.0]) else { return nil }
+        let center = CGPoint(x: CGFloat(size) / 2, y: CGFloat(size) / 2)
+        context.drawRadialGradient(gradient,
+                                   startCenter: center, startRadius: 0,
+                                   endCenter: center, endRadius: CGFloat(size) / 2,
+                                   options: [])
+        return context.makeImage()
+    }()
+
+    private func faceShadeNode() -> SCNNode {
+        let plane = SCNPlane(width: 37, height: 36)
+        let material = SCNMaterial()
+        material.lightingModel = .constant
+        material.diffuse.contents = Self.faceShadeImage
+        material.blendMode = .alpha
+        material.isDoubleSided = true
+        material.writesToDepthBuffer = false
+        plane.materials = [material]
+
+        let node = SCNNode(geometry: plane)
+        node.position = SCNVector3(0, 0, 22.0)
+        return node
+    }
+
+    // MARK: 腮红
+
+    private static let blushImage: CGImage? = {
+        let size = 128
+        guard let context = CGContext(data: nil,
+                                      width: size,
+                                      height: size,
+                                      bitsPerComponent: 8,
+                                      bytesPerRow: 0,
+                                      space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        let color = PipPalette.cheek
+        let colors = [color.withAlphaComponent(0.85).cgColor,
+                      color.withAlphaComponent(0.32).cgColor,
+                      color.withAlphaComponent(0).cgColor] as CFArray
+        guard let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                                        colors: colors,
+                                        locations: [0, 0.5, 1]) else { return nil }
+        let center = CGPoint(x: CGFloat(size) / 2, y: CGFloat(size) / 2)
+        context.drawRadialGradient(gradient,
+                                   startCenter: center, startRadius: 0,
+                                   endCenter: center, endRadius: CGFloat(size) / 2,
+                                   options: [])
+        return context.makeImage()
+    }()
+
+    /// 一张贴在脸颊上的软渐变片，边缘自然化开
+    private func blushNode(sign: CGFloat) -> SCNNode {
+        let width: CGFloat = 9.5
+        let plane = SCNPlane(width: width, height: width * 0.72)
+
+        let material = SCNMaterial()
+        material.lightingModel = .constant
+        material.diffuse.contents = Self.blushImage
+        material.blendMode = .alpha
+        material.isDoubleSided = true
+        material.writesToDepthBuffer = false
+        plane.materials = [material]
+
+        let node = SCNNode(geometry: plane)
+        node.position = SCNVector3(sign * 9.4, -4.9, 8.6)
+        return node
     }
 
     // MARK: 眼神
 
     func setGaze(_ direction: CGPoint) {
-        let dx = direction.x * 2.2
-        let dy = direction.y * 1.6
-
-        SCNTransaction.begin()
-        SCNTransaction.animationDuration = 0
-        SCNTransaction.disableActions = true
-        eyeGroupL.position = SCNVector3(eyeBaseL.x + dx, eyeBaseL.y + dy, 7.5)
-        eyeGroupR.position = SCNVector3(eyeBaseR.x + dx, eyeBaseR.y + dy, 7.5)
-        SCNTransaction.commit()
+        gaze = direction
     }
 
     // MARK: 材质

@@ -12,6 +12,7 @@ enum Snapshot {
     static func run(outputPath: String) {
         let canvas = 900
         let built = SceneFactory.makeScene(viewportSize: CGSize(width: canvas, height: canvas))
+        if ProcessInfo.processInfo.environment["PIP_GAZE"] == "1" { built.rig.setGaze(CGPoint(x: 0.9, y: 0.45)) }
         built.camera.camera?.orthographicScale = 60
         built.camera.position = SCNVector3(0, 48, 900)
         built.camera.eulerAngles = SCNVector3(0, 0, 0)

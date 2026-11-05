@@ -54,8 +54,11 @@ package.sh             编译 → 组装 dist/Pip.app → 安装到 /Application
 
 **造型怎么做的**：身体是一整块「旋转成形」的钟形体（`PipRig.bodyProfile` 那条轮廓线，
 最宽 60 点、高 87 点），不是堆球，所以兜帽和身体之间没有接缝；绒感靠 `FurTexture` 生成的
-周期噪声法线贴图（法线强度 0.7，UV 平铺 3.5 次）；脸是一颗压扁的椭球嵌进绒毛里，
-眼睛/腮红是小球，嘴是一串 0.52 半径的小球沿二次贝塞尔排开（SCNShape 画细弧端头不收圆）。
+周期噪声法线贴图——噪声横向频率是纵向的 4 倍，所以纹理是竖着的毛丝而不是疙瘩
+（法线强度 0.7，UV 平铺 3.5 次）；脸是一颗压扁的椭球嵌进绒毛里，交界处盖一张
+软阴影环（`faceShadeNode`）把生硬的分界线化开；眼睛是带冷光的小珠子，
+腮红是径向渐变软片（`blushNode`，用球体做会变成硬边椭圆），嘴是一串小球沿二次贝塞尔排开
+（SCNShape 画细弧端头不收圆）。
 换配色改 `PipPalette`，换轮廓改 `bodyProfile` 数组即可。
 
 **换模型的接口**：`Pose.swift` 里的 `PetRig` 协议（`node` / `pixelHeight` / `apply(_:)`）。
@@ -86,6 +89,8 @@ swift build                 # 调试编译
 - 动画幅度与节奏：`PetAnimator.swift`
 - 造型、配色、比例：`PipRig.swift` 的 `build()`、`bodyProfile` 和 `PipPalette`
 - 绒感强弱：`PipRig.makeFurMaterial` 里的 `normal.intensity` / `contentsTransform`
+- 色卡：`PipPalette`（fur 暖米色 / face 奶油色 / cheek 腮红 / eye 眼珠）
+- 想单独看眼神：`PIP_GAZE=1 .build/debug/Pip --snapshot /tmp/look.png`
 - 眼神跟随的范围与力度：`Stage.updateLook` 里的 320（感应半径）/ 150（满偏距离），
   眼球偏移幅度在 `PipRig.setGaze`（2.2 / 1.6）
 - 帧率、全屏检测阈值：`Stage.swift`

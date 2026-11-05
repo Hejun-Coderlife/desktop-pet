@@ -3,28 +3,36 @@ import CoreGraphics
 
 /// 程序生成可平铺的「绒毛」法线贴图（值噪声 → 高度场 → 法线）
 /// 90 像素高的角色用不上真正的毛发几何，法线贴图 + 柔和光照就够读出绒感了。
-/// 噪声必须是周期的，否则贴图平铺时会出现一条条可见的接缝。
+/// 两件事必须做对：噪声要周期（否则平铺出现接缝），噪声要沿竖直方向拉长（否则像疙瘩不像毛）。
 enum FurTexture {
 
     private static var cached: CGImage?
 
     static var shared: CGImage? {
         if let cached { return cached }
-        cached = makeNormalMap(size: 512, strength: 2.0)
+        cached = makeNormalMap(size: 512, strength: 2.4)
         return cached
     }
 
     static func makeNormalMap(size: Int, strength: Float) -> CGImage? {
-        // 三倍频：16 / 32 / 64 个格，都是 2 的幂，直接按位与就能循环
+        // 三倍频，横向 4 倍于纵向 → 毛丝是竖着的长条；周期都是 2 的幂，按位与就能循环
+        let octaves: [(freqU: Float, freqV: Float, periodU: Int, periodV: Int, weight: Float)] = [
+            (32, 8, 32, 8, 0.5),
+            (64, 16, 64, 16, 0.32),
+            (128, 32, 128, 32, 0.18)
+        ]
+
         var heights = [Float](repeating: 0, count: size * size)
         for y in 0..<size {
             let v = Float(y) / Float(size)
             for x in 0..<size {
                 let u = Float(x) / Float(size)
-                let base = tileNoise(u * 16, v * 16, period: 16)
-                let mid = tileNoise(u * 32, v * 32, period: 32)
-                let fine = tileNoise(u * 64, v * 64, period: 64)
-                heights[y * size + x] = base * 0.55 + mid * 0.30 + fine * 0.15
+                var height: Float = 0
+                for octave in octaves {
+                    height += octave.weight * tileNoise(u * octave.freqU, v * octave.freqV,
+                                                        periodX: octave.periodU, periodY: octave.periodV)
+                }
+                heights[y * size + x] = height
             }
         }
 
@@ -76,8 +84,9 @@ enum FurTexture {
         return Float(h % 65_536) / 65_535.0
     }
 
-    private static func tileNoise(_ x: Float, _ y: Float, period: Int) -> Float {
-        let mask = period - 1
+    private static func tileNoise(_ x: Float, _ y: Float, periodX: Int, periodY: Int) -> Float {
+        let maskX = periodX - 1
+        let maskY = periodY - 1
         let xi = Int(floor(x))
         let yi = Int(floor(y))
         let xf = x - floor(x)
@@ -86,10 +95,10 @@ enum FurTexture {
         let u = xf * xf * (3 - 2 * xf)
         let v = yf * yf * (3 - 2 * yf)
 
-        let x0 = xi & mask
-        let y0 = yi & mask
-        let x1 = (xi + 1) & mask
-        let y1 = (yi + 1) & mask
+        let x0 = xi & maskX
+        let y0 = yi & maskY
+        let x1 = (xi + 1) & maskX
+        let y1 = (yi + 1) & maskY
 
         let a = hash(x0, y0)
         let b = hash(x1, y0)
