@@ -284,3 +284,15 @@ swift build                 # 调试编译
 - 声音：tools/make_voice.py（uv run --with numpy --with scipy）嗓音合成 → Resources/sounds/*.wav，Mac(Voice.swift, AVAudioEngine 用完 2 秒关) 和 Windows(Voice.cs + WinVoice PlaySound，wav 嵌进 exe) 共用。
   - 7 种：grab/thrown/hop/land/petted/sign/wake；菜单里「Pip 的声音」滑条单独调音量（默认 40%，0=静音），Settings.volume / 注册表 volume。
   - `Pip --voicetest` 依次播放并检查不会被自己当成"有音乐在放"。
+
+## 2026-11-06 中午（Windows 电脑上做的）
+- **仓库已公开 + MIT 许可**。公开前**改写了全部历史**：作者邮箱全换成 `120294284+Hejun-Coderlife@users.noreply.github.com`，
+  并从历史里删掉了早期误提交的 `.build/`（73 MB 编译缓存）。**Mac 上的旧仓库必须删掉重新 clone**，
+  在旧仓库里 pull / push（包括 auto-backup）会把带旧邮箱的历史推回公开仓库。改写前的备份在 Windows 电脑 `~/backup/desktop-pet-before-email-rewrite.bundle`。
+  新仓库里先 `git config user.email 120294284+Hejun-Coderlife@users.noreply.github.com`。
+- 修了中文 Windows 启动报着色器错误（GLSL 里中文注释按 GBK 编码，0x5C 当续行符）：Renderer.ToAsciiShader。
+- Windows 安装包：windows/installer/Pip.iss（Inno Setup，免费），装到 %LOCALAPPDATA%\Programs\Pip，不要管理员；能在「设置 → 应用」卸载。
+- 自动更新（windows/src/Updater.cs）：看 github.com/<仓库>/releases/latest 的 302 跳转拿版本（**不用 api.github.com**，共用出口常被限流 403），
+  下载 Pip-Setup-X.Y.Z.exe + .sha256 校验 → /SILENT 安装 → 自动重开。实测 1.0.0 → 1.0.2 用时 10 秒。
+- **发新版**：`git tag -a vX.Y.Z -m 说明 && git push origin vX.Y.Z`，CI 按标签版本编译、自检、出安装包和 .sha256、发 Release。
+  已发：v1.0.1（没有 .sha256，新版更新逻辑不会装它）、v1.0.2。
