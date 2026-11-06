@@ -1,11 +1,18 @@
 # Windows 版：编译 Pip.exe → 在 runner 上真机自检（状态机、离屏渲染、真窗口截屏、模拟鼠标拎起来扔、站到记事本窗口上）
 # runner 没有显卡，自检时把 Mesa 的软件 OpenGL（llvmpipe）放在 exe 旁边；发给用户的 Pip.exe 用电脑自己的显卡驱动
+# 发新版：推一个 v1.2.3 标签（git tag v1.2.3 && git push origin v1.2.3）→ 按这个版本号编译、自检、出安装包，
+# 发成 GitHub Release；Pip 的自动更新就看 releases/latest（Updater.cs）
 name: Windows
 
 on:
   push:
-    paths: ["windows/**", ".github/workflows/windows.yml"]
+    branches: ["**"]
+    tags: ["v*"]
+    paths: ["windows/**", ".github/workflows/windows.yml"]   # 只管分支；推标签不看 paths，总会跑
   workflow_dispatch:
+
+permissions:
+  contents: write   # 发 Release 用
 
 jobs:
   build:
@@ -17,8 +24,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Version
+        run: |
+          # 标签 v1.2.3 → 1.2.3；平常的推送用 csproj / Pip.iss 里写的版本
+          $v = if ("${{ github.ref }}" -match '^refs/tags/v(\d+\.\d+\.\d+)$') { $matches[1] } else { '' }
+          "PIP_VERSION=$v" >> $env:GITHUB_ENV
+          Write-Host "version: '$v'"
+
       - name: Build
-        run: dotnet build windows/Pip.csproj -c Release
+        run: |
+          if ($env:PIP_VERSION) { dotnet build windows/Pip.csproj -c Release -p:Version=$env:PIP_VERSION } else { dotnet build windows/Pip.csproj -c Release }
 
       - name: Mesa (software OpenGL for the self-test only)
         run: |
@@ -69,7 +84,7 @@ jobs:
         run: |
           $iscc = @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\Inno Setup 6\ISCC.exe", "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
           if (-not $iscc) { choco install innosetup -y --no-progress | Out-Null; $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
-          & $iscc /Q windows/installer/Pip.iss
+          if ($env:PIP_VERSION) { & $iscc /Q "/DAppVersion=$env:PIP_VERSION" windows/installer/Pip.iss } else { & $iscc /Q windows/installer/Pip.iss }
           if ($LASTEXITCODE -ne 0) { exit 1 }
           Get-ChildItem dist
 
@@ -78,3 +93,11 @@ jobs:
         with:
           name: Pip-Setup-Windows-x64
           path: dist/Pip-Setup-*.exe
+
+      # 只有推 v* 标签才发 Release（说明 = 自上个版本以来的提交）
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" (Get-ChildItem dist/Pip-Setup-*.exe).FullName --title "Pip ${{ github.ref_name }}" --generate-notes

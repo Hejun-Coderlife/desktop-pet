@@ -10,7 +10,10 @@
 ; 没有代码签名（要花钱），对方第一次运行安装包会弹「Windows 已保护你的电脑」：更多信息 → 仍要运行
 
 #define AppName "Pip 桌面宠物"
-#define AppVersion "1.0.0"
+; 版本号：CI 打 v1.2.3 标签时用 /DAppVersion=1.2.3 传进来；本地编不传就用这里的
+#ifndef AppVersion
+  #define AppVersion "1.0.0"
+#endif
 #define BinDir "..\bin\Release\net48"
 
 [Setup]
@@ -62,6 +65,8 @@ Root: HKCU; Subkey: "Software\Pip"; Flags: uninsdeletekey dontcreatekey
 
 [Run]
 Filename: "{app}\Pip.exe"; Description: "现在打开 Pip"; Flags: nowait postinstall skipifsilent
+; Pip 自己点「更新」时是静默安装（/SILENT），装完直接打开
+Filename: "{app}\Pip.exe"; Flags: nowait; Check: WizardSilent
 
 [UninstallRun]
 Filename: "{app}\Pip.exe"; Parameters: "--quit"; Flags: runhidden waituntilterminated; RunOnceId: "QuitPip"

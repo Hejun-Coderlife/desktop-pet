@@ -6,6 +6,10 @@
 - 升级：直接装新版安装包，会先让正在跑的 Pip 退出再替换
 - 第一次运行安装包如果弹出「Windows 已保护你的电脑」：点「更多信息」→「仍要运行」（没有买代码签名证书）
 
+**自动更新**：Pip 启动 1 分钟后、之后每天看一次 GitHub Releases 最新版（托盘菜单「检查更新」也能手动查），比自己新就问要不要更新；
+点「更新」→ 下载安装包、核对 SHA-256 → 静默安装 → 自动重新打开。点「否」= 这个版本自动检查时不再问。连不上 GitHub 只是更新不了，Pip 照常用。
+**发新版**：`git tag v1.0.1 && git push origin v1.0.1`，CI 按标签版本号编译、自检、出安装包并发成 Release（见 `.github/workflows/windows.yml`）。
+
 **不装也能用**：直接双击 `Pip.exe`（只有这一个文件）。开机自启记的是 exe 当时的位置，开了自启就别再挪它。
 
 **做安装包**（Inno Setup 6，免费；`winget install JRSoftware.InnoSetup`）：先 `dotnet build windows/Pip.csproj -c Release`，再
@@ -33,3 +37,7 @@ GitHub CI 每次也会出一份（产物 `Pip-Setup-Windows-x64`）。
 - 窗口顶边：`EnumWindows` + DWM 可见边框，扣掉被前面窗口挡住的部分；声音：默认扬声器上各程序音频会话的峰值电平
 - 在 Mac 上：`dotnet build windows/Pip.csproj -c Release` 出 exe；`windows/tests/MacRender` 用同一份渲染代码在 Mac 上出图对比 + 跑状态机自检
 - `.github/workflows/windows.yml`：在 GitHub 的 Windows 机器上编译 + 真机自检（用 Mesa 软件 OpenGL），需要先推到 GitHub
+
+## 许可
+
+代码 MIT（见仓库根目录 LICENSE）。声音素材（`Resources/sounds/`、`preview/sound-choices/`）全部 CC0，来源见各目录的 `来源.txt`。

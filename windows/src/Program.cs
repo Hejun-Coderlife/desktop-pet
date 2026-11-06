@@ -47,6 +47,7 @@ namespace Pip
                 return 3;
             }
             BuildTray();
+            Updater.Start();
             stage.Start();
             ListenForSignals();
             Application.Run();
@@ -135,6 +136,9 @@ namespace Pip
             menu.Items.Add(now);
             menu.Items.Add(new ToolStripSeparator());
             Toggle("开机自动启动", () => RegistryStore.AutoStart, v => RegistryStore.AutoStart = v);
+            var upd = new ToolStripMenuItem($"检查更新（现在 {Updater.Current}）");
+            upd.Click += (s, e) => Updater.Check(true);
+            menu.Items.Add(upd);
             menu.Items.Add(new ToolStripSeparator());
             var quit = new ToolStripMenuItem("退出 Pip");
             quit.Click += (s, e) => Application.Exit();
