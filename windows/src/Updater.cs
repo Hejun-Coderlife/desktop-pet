@@ -85,10 +85,22 @@ namespace Pip
 
         static void Post(Action a) { if (ui != null) ui.Post(_ => a(), null); else a(); }
 
+        // 每个请求都开新连接（KeepAlive = false）：.NET 会复用先前「查版本」留下的空闲连接，
+        // 用户看弹窗的这段时间里代理 / GitHub 早把它断了，再用就报「The connection was closed unexpectedly」（2026-11-06 实测）
+        class FreshClient : WebClient
+        {
+            protected override WebRequest GetWebRequest(Uri address)
+            {
+                var r = base.GetWebRequest(address);
+                if (r is HttpWebRequest h) { h.KeepAlive = false; h.Timeout = 60000; h.ReadWriteTimeout = 60000; }
+                return r;
+            }
+        }
+
         static WebClient Client()
         {
             ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;   // .NET 4.8 默认不一定开 TLS 1.2，GitHub 只认 1.2+
-            var wc = new WebClient();
+            var wc = new FreshClient();
             wc.Headers[HttpRequestHeader.UserAgent] = "Pip-Updater/" + Current;
             wc.Encoding = System.Text.Encoding.UTF8;
             return wc;
@@ -100,6 +112,7 @@ namespace Pip
             ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
             var req = (HttpWebRequest)WebRequest.Create(Site + "latest");
             req.AllowAutoRedirect = false;
+            req.KeepAlive = false;
             req.Method = "HEAD";
             req.UserAgent = "Pip-Updater/" + Current;
             req.Timeout = 20000;
@@ -109,6 +122,16 @@ namespace Pip
             if (!m.Success) return null;   // 还没发过版本时会跳到 releases 列表页
             var v = new Version(int.Parse(m.Groups[2].Value), int.Parse(m.Groups[3].Value), int.Parse(m.Groups[4].Value));
             return new Release { Tag = m.Groups[1].Value, Version = v, Url = Site + "download/" + m.Groups[1].Value + "/Pip-Setup-" + v + ".exe" };
+        }
+
+        // 网络抖一下就重试：共 3 次，间隔 2 秒；404 这种不重试
+        static string Retry(Func<string> f)
+        {
+            for (int i = 1; ; i++)
+            {
+                try { return f(); }
+                catch (WebException e) when (i < 3 && !(e.Response is HttpWebResponse hr && (int)hr.StatusCode < 500)) { Thread.Sleep(2000); }
+            }
         }
 
         static void Ask(Release r)
@@ -122,15 +145,15 @@ namespace Pip
                 try
                 {
                     string file = Path.Combine(Path.GetTempPath(), "Pip-Setup-" + r.Version + ".exe");
-                    string want;
-                    using (var wc = Client())
-                    {
-                        // CI 写的「<sha256>  Pip-Setup-x.y.z.exe」；没有校验文件就不装
-                        var sm = Regex.Match(wc.DownloadString(r.Url + ".sha256"), "[0-9a-fA-F]{64}");
-                        if (!sm.Success) throw new Exception("这个版本缺少校验文件，先不更新。");
-                        want = sm.Value.ToLowerInvariant();
-                        wc.DownloadFile(r.Url, file);
-                    }
+                    // CI 写的「<sha256>  Pip-Setup-x.y.z.exe」；没有校验文件就不装
+                    string sums;
+                    try { sums = Retry(() => { using (var wc = Client()) return wc.DownloadString(r.Url + ".sha256"); }); }
+                    catch (WebException we) when ((we.Response as HttpWebResponse)?.StatusCode == HttpStatusCode.NotFound)
+                    { throw new Exception($"版本 {r.Version} 没有附带校验文件，为了安全先不更新。"); }
+                    var sm = Regex.Match(sums, "[0-9a-fA-F]{64}");
+                    if (!sm.Success) throw new Exception("校验文件内容不对，先不更新。");
+                    string want = sm.Value.ToLowerInvariant();
+                    Retry(() => { using (var wc = Client()) wc.DownloadFile(r.Url, file); return ""; });
                     string got;
                     using (var sha = SHA256.Create()) using (var fs = File.OpenRead(file))
                         got = BitConverter.ToString(sha.ComputeHash(fs)).Replace("-", "").ToLowerInvariant();
