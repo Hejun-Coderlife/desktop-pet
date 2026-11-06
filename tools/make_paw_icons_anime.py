@@ -136,7 +136,7 @@ def beans(cv, pal, s=1.0, cx=512, cy=500, tilt=0.0):
         cv.over(np.ones(3, np.float32), fill(sd_ellipse(*P(x, y), rx * s, ry * s, -0.5 + tilt)) * 0.95)
 
 
-def strands(cv, d, centre, color, rng, count=70, inner=(20, 70)):
+def strands(cv, d, centre, color, rng, count=70, inner=(20, 70), clip=None):
     """毛的小细线：沿轮廓内侧随机画短弧线，动漫里表现毛绒的那几笔"""
     im = Image.new("L", (S, S), 0)
     dr = ImageDraw.Draw(im)
@@ -152,7 +152,9 @@ def strands(cv, d, centre, color, rng, count=70, inner=(20, 70)):
                (x + np.cos(a + 0.1) * L, y + np.sin(a + 0.1) * L)]
         dr.line(pts, fill=255, width=int(k(3.2)), joint="curve")
     m = np.asarray(im, np.float32) / 255 * (d < 0)
-    cv.over(color, m * 0.55)
+    if clip is not None:
+        m = m * clip
+    cv.over(color, m * 0.45)
 
 
 def sparkle(cv, x, y, r, color, alpha=1.0):
@@ -163,12 +165,14 @@ def sparkle(cv, x, y, r, color, alpha=1.0):
 
 
 def heart(cv, x, y, r, color):
-    a = sd_ellipse(x - r * 0.48, y - r * 0.15, r * 0.58, r * 0.58)
-    b = sd_ellipse(x + r * 0.48, y - r * 0.15, r * 0.58, r * 0.58)
-    tri = np.maximum.reduce([(yy - k(y + r * 0.95)),
-                             -((yy - k(y + r * 0.95)) + 1.05 * (xx - k(x - r * 1.02))) / 1.45,
-                             -((yy - k(y + r * 0.95)) - 1.05 * (xx - k(x + r * 1.02))) / 1.45])
-    d = np.minimum(np.minimum(a, b), tri)
+    """两个圆 + 转 45° 的方块"""
+    a = sd_ellipse(x - r * 0.42, y - r * 0.2, r * 0.5, r * 0.5)
+    b = sd_ellipse(x + r * 0.42, y - r * 0.2, r * 0.5, r * 0.5)
+    u = ((xx - k(x)) + (yy - k(y + r * 0.12))) / np.sqrt(2)
+    v = ((xx - k(x)) - (yy - k(y + r * 0.12))) / np.sqrt(2)
+    sq = np.maximum(np.abs(u), np.abs(v)) - k(r * 0.6)
+    d = np.minimum(np.minimum(a, b), np.maximum(sq, yy - k(y + r * 0.95)))
+    d = np.minimum(np.minimum(a, b), sq)
     cv.over(color, fill(d))
 
 
@@ -187,22 +191,28 @@ def paw_icon(pal, seed=0, stripes=False, patch=False, deco="sparkle", s=0.92, ti
     shade = np.maximum(fd, -(np.roll(np.roll(fd, -int(k(34)), 0), -int(k(26)), 1)))
     cv.over(pal["fur_dark"], fill(shade) * inside * 0.95)
     if stripes:
-        band = np.sin((yy * 0.2 - xx * 0.98) / k(30)) * (yy < k(760)) * (np.abs(xx - k(512)) > k(120))
-        stripe = np.clip((band - 0.45) * 4, 0, 1) * (fd < -k(10)) * (yy < k(440))
-        stripe2 = np.clip((np.sin((yy * 0.98 + xx * 0.18) / k(28)) - 0.5) * 4, 0, 1) * (sd_box(512, 840, 150, 200, 60) < 0)
-        cv.over(pal["stripe"], np.maximum(stripe, stripe2) * inside * 0.9)
+        # 手臂上 3 道细横纹 + 爪子两侧各两道短纹，像虎斑猫
+        bands = np.zeros((S, S), np.float32)
+        for y0 in (720, 800, 880):
+            bands = np.maximum(bands, fill(sd_ellipse(512, y0 + 0.0008 * (xx / k(1) - 512) ** 2, 175, 13)))
+        for sx in (-1, 1):
+            for y0, ln in ((500, 60), (560, 50)):
+                bands = np.maximum(bands, fill(sd_ellipse(512 + sx * 228, y0, ln, 11, sx * 0.25)))
+        cv.over(pal["stripe"], bands * (fd < -k(6)) * inside * 0.9)
     if patch:  # 三花：左上一块花斑
-        p = fluff(sd_ellipse(380, 360, 170, 140, -0.4), (380, 360), n=30, amp=9, seed=seed + 1)
+        p = fluff(sd_ellipse(660, 360, 175, 150, 0.3), (660, 360), n=30, amp=10, seed=seed + 1)
         cv.over(pal["patch"], fill(np.maximum(p, fd)) * inside)
+        p2 = fluff(sd_ellipse(330, 330, 95, 85, -0.3), (330, 330), n=22, amp=8, seed=seed + 2)
+        cv.over(pal["patch2"], fill(np.maximum(p2, fd)) * inside)
     hl = fill(np.maximum(fd, sd_ellipse(410, 410, 170, 120, -0.5))) * inside
     cv.over(pal["fur_light"], hl * 0.85)
-    strands(cv, fd, centre, pal["line"], rng)
+    strands(cv, fd, centre, pal["line"], rng, clip=inside * (yy < k(905)))
     # 描边（柔和深色，不是纯黑）
     cv.over(pal["line"], ring(fd, 5.5) * inside)
     # 脚趾之间的分隔小弧（往下的一小撇）
     for x in (393, 512, 631):
         seg = sd_ellipse(x, 330 + (40 if x != 512 else 0), 10, 46)
-        cv.over(pal["line"], fill(seg) * (fd < -k(8)) * inside * 0.55)
+        cv.over(pal["fur_dark"], fill(seg) * (fd < -k(8)) * inside * 0.0)
     beans(cv, pal, s=s, cx=512, cy=520, tilt=tilt)
     # 小装饰
     if deco == "sparkle":
@@ -218,7 +228,7 @@ PALS = {
     "orange": dict(fur=rgb("#FFC27A"), fur_dark=rgb("#F29A4A"), fur_light=rgb("#FFE0B2"), line=rgb("#9A5A33"),
                    stripe=rgb("#E9893A"), bean=rgb("#FFA9C0"), bean_dark=rgb("#F2849F"), deco=rgb("#FFD36E"), deco2=rgb("#FFB3C8")),
     "calico": dict(fur=rgb("#FFFAF4"), fur_dark=rgb("#EADFD3"), fur_light=rgb("#FFFFFF"), line=rgb("#7E6A62"),
-                   patch=rgb("#F2A766"), bean=rgb("#FFA9C0"), bean_dark=rgb("#F2849F"), deco=rgb("#FFD36E"), deco2=rgb("#9FD3F5")),
+                   patch=rgb("#F5A35C"), patch2=rgb("#6B5A55"), bean=rgb("#FFA9C0"), bean_dark=rgb("#F2849F"), deco=rgb("#FFD36E"), deco2=rgb("#9FD3F5")),
     "pink": dict(fur=rgb("#FFE3EC"), fur_dark=rgb("#F8C4D5"), fur_light=rgb("#FFF6F9"), line=rgb("#B06A86"),
                  bean=rgb("#FF8FB0"), bean_dark=rgb("#EE6E95"), deco=rgb("#FF8FB0"), deco2=rgb("#FFC2D4")),
     "grey": dict(fur=rgb("#E6E9F0"), fur_dark=rgb("#C3C9D6"), fur_light=rgb("#F8F9FC"), line=rgb("#5E6577"),
@@ -240,7 +250,7 @@ def main():
         ims.append((name, im)); print(name)
     W, pad = 360, 40
     sheet = Image.new("RGB", (pad + len(ims) * (W + pad), W + 120), "#E8E6EC")
-    font = ImageFont.truetype("/System/Library/Fonts/PingFang.ttc", 30)
+    font = ImageFont.truetype("/System/Library/Fonts/STHeiti Medium.ttc", 30)
     d = ImageDraw.Draw(sheet)
     for i, (name, im) in enumerate(ims):
         x = pad + i * (W + pad)
