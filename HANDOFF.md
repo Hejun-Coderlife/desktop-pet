@@ -274,3 +274,13 @@ swift build                 # 调试编译
   模型/着色器/状态机逐行移植。颜色按 Mac 真机截图对的：绒毛色不做 sRGB 解码、毛高贴图做解码（Renderer.FurLinear/StrandLinear）。
   注意 `Pip --posesheet` 出的图是没做 sRGB 编码的（bgra8Unorm），偏暗偏艳，别拿它当颜色参考。
   **还没在真 Windows 上跑过**：推 GitHub（私有仓库）跑 CI、或在 Windows 电脑上 `Pip.exe --selftest`。
+
+## 2026-11-06 早上
+- 仓库已推到私有库 github.com/Hejun-Coderlife/desktop-pet；CI（.github/workflows/windows.yml）在真 Windows Server 2025 上跑 `Pip.exe --selftest` **全部 PASS**（状态机/11 种渲染/截屏能看到 Pip/鼠标拎起/站到记事本顶上/举牌/声音）。
+  - Mesa 新版 msvc 包没有 opengl32.dll，CI 改用 mingw 包；WinGL 会先按完整路径加载 exe 旁的 opengl32.dll。
+  - 没显卡（llvmpipe 等）时 Renderer.Software=true，不再 2× 超采样；自检按帧推进 + waitFor 等慢动作做完。
+  - 修了真 bug：提醒到点时 Pip 正在掉落会丢提醒 → WinStage.pendingSign 落地再举牌（Mac 版 PetWorld.showSign 同样会丢，未改）。
+- 图标：Resources/AppIcon.icns（MacRender `dotnet run -- X.mactile.png` 渲 1024 圆角蓝底图）；Info.plist CFBundleIconFile。
+- 声音：tools/make_voice.py（uv run --with numpy --with scipy）嗓音合成 → Resources/sounds/*.wav，Mac(Voice.swift, AVAudioEngine 用完 2 秒关) 和 Windows(Voice.cs + WinVoice PlaySound，wav 嵌进 exe) 共用。
+  - 7 种：grab/thrown/hop/land/petted/sign/wake；菜单里「Pip 的声音」滑条单独调音量（默认 40%，0=静音），Settings.volume / 注册表 volume。
+  - `Pip --voicetest` 依次播放并检查不会被自己当成"有音乐在放"。
