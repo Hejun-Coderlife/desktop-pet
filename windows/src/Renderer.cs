@@ -165,8 +165,21 @@ void main() {
             lightCol[6] = rimC.X; lightCol[7] = rimC.Y; lightCol[8] = rimC.Z;
         }
 
+        // 着色器源码交给驱动前清成纯 ASCII：GL.ShaderSource 按系统 ANSI 代码页编码（中文 Windows = GBK），
+        // GBK 有些汉字第二个字节是 0x5C（反斜杠），落在行末会被当成续行符，把下一行代码并进注释，语法全乱。
+        // 先删 /* */ 块注释和 // 行注释，再删掉剩下所有 >127 的字符。
+        static string ToAsciiShader(string src)
+        {
+            src = System.Text.RegularExpressions.Regex.Replace(src, @"/\*.*?\*/", "", System.Text.RegularExpressions.RegexOptions.Singleline);
+            src = System.Text.RegularExpressions.Regex.Replace(src, @"//[^\r\n]*", "");
+            var sb = new System.Text.StringBuilder(src.Length);
+            foreach (char c in src) if (c <= 127) sb.Append(c);
+            return sb.ToString();
+        }
+
         static uint Compile(uint type, string src)
         {
+            src = ToAsciiShader(src);
             uint s = GL.CreateShader(type);
             GL.ShaderSource(s, 1, new[] { src }, IntPtr.Zero);
             GL.CompileShader(s);
@@ -174,9 +187,29 @@ void main() {
             if (ok == 0)
             {
                 var log = new byte[4096]; GL.GetShaderInfoLog(s, log.Length, out int len, log);
-                throw new Exception("着色器编译失败：" + System.Text.Encoding.ASCII.GetString(log, 0, Math.Max(0, len)));
+                string msg = System.Text.Encoding.ASCII.GetString(log, 0, Math.Max(0, len));
+                WriteShaderError(type, msg, src);
+                throw new Exception("着色器编译失败：" + msg);
             }
             return s;
+        }
+
+        // 编译失败时把清理后的源码带行号写进 %LOCALAPPDATA%\Pip\shader-error.txt，行号跟驱动报错里的对得上
+        static void WriteShaderError(uint type, string log, string src)
+        {
+            try
+            {
+                string dir = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Pip");
+                System.IO.Directory.CreateDirectory(dir);
+                var sb = new System.Text.StringBuilder();
+                sb.AppendLine(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "  " + (type == GL.VERTEX_SHADER ? "顶点着色器" : "片元着色器") + " 编译失败");
+                sb.AppendLine(log.TrimEnd('\0', '\r', '\n'));
+                sb.AppendLine();
+                string[] lines = src.Replace("\r\n", "\n").Split('\n');
+                for (int i = 0; i < lines.Length; i++) sb.AppendLine((i + 1).ToString().PadLeft(4) + ": " + lines[i]);
+                System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "shader-error.txt"), sb.ToString(), new System.Text.UTF8Encoding(false));
+            }
+            catch { }
         }
 
         static uint Link(uint vs, uint fs)
