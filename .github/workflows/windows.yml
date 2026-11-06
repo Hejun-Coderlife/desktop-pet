@@ -86,13 +86,15 @@ jobs:
           if (-not $iscc) { choco install innosetup -y --no-progress | Out-Null; $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
           if ($env:PIP_VERSION) { & $iscc /Q "/DAppVersion=$env:PIP_VERSION" windows/installer/Pip.iss } else { & $iscc /Q windows/installer/Pip.iss }
           if ($LASTEXITCODE -ne 0) { exit 1 }
+          # Pip 自动更新先下这个校验文件再下安装包（Updater.cs）
+          foreach ($f in Get-ChildItem dist/Pip-Setup-*.exe) { "$((Get-FileHash $f.FullName -Algorithm SHA256).Hash.ToLower())  $($f.Name)" | Set-Content -NoNewline -Encoding ascii "$($f.FullName).sha256" }
           Get-ChildItem dist
 
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
           name: Pip-Setup-Windows-x64
-          path: dist/Pip-Setup-*.exe
+          path: dist/Pip-Setup-*
 
       # 只有推 v* 标签才发 Release（说明 = 自上个版本以来的提交）
       - name: Release
@@ -100,4 +102,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ github.ref_name }}" (Get-ChildItem dist/Pip-Setup-*.exe).FullName --title "Pip ${{ github.ref_name }}" --generate-notes
+          gh release create "${{ github.ref_name }}" (Get-ChildItem dist/Pip-Setup-*).FullName --title "Pip ${{ github.ref_name }}" --generate-notes
