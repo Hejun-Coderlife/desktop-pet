@@ -4,3 +4,6 @@ hop.wav    = Freesound 343984 giggle10.wav (Reitanna)   https://freesound.org/s/
 petted.wav = Freesound 364893 Cat purring (TiesWijnen)  https://freesound.org/s/364893/
 sign.wav   = Freesound 448018 female cat short meoow (Lupsi)  https://freesound.org/s/448018/
 处理：tools/prep_sound_choices.py（去头尾静音、固定增益到 -3dB，不压缩）
+land.wav   = Freesound 686321 Punch Land Soft (CJspellsfish)  https://freesound.org/s/686321/
+wake.wav   = Freesound 854551 Yawning Kitty (CAT-FOX_ALEX)  https://freesound.org/s/854551/
+（被扔出去 thrown 不配声音：拎起时已经叫过一声）
