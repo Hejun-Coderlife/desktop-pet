@@ -67,11 +67,12 @@ namespace Pip
             foreach (Cue c in Enum.GetValues(typeof(Cue)))
             {
                 var x = Voice.Samples(c);
+                if (x.Length == 0) { Line($"  {c}：没配声音（不出声）"); continue; }
                 float peak = 0; foreach (var v in x) peak = Math.Max(peak, Math.Abs(v));
                 Line($"  {c}：{x.Length / 44100.0:0.00} 秒，峰值 {peak:0.00}" + (peak > 0.99f ? "（削波）" : ""));
                 if (peak > 0.99f || peak < 0.05f) Fail($"声音 {c} 音量不对（峰值 {peak:0.00}）");
             }
-            var wav = Voice.Wav(Voice.Samples(Cue.Sign), 0.4f);
+            var wav = Voice.Wav(Voice.Samples(Cue.Sign), 0.4f);   // 举牌一定有声音
             File.WriteAllBytes(Path.Combine(dir, "voice-sign.wav"), wav);
             try { WinVoice.Install(); Voice.Play(Cue.Hop, true); Line("  [通过] 播放没报错（CI 机器没声卡，听不到是正常的）"); }
             catch (Exception e) { Fail("播放声音出错：" + e.Message); }

@@ -34,7 +34,9 @@ namespace Pip
             double t = clock.Elapsed.TotalSeconds;
             if (!force && lastPlayed.TryGetValue(cue, out var last) && t - last < 0.35) return;
             lastPlayed[cue] = t;
-            try { Output(Wav(Samples(cue), vol / 100f)); } catch { }
+            var x = Samples(cue);
+            if (x.Length == 0) return;   // 这个动作还没配声音
+            try { Output(Wav(x, vol / 100f)); } catch { }
         }
 
         public static float[] Samples(Cue cue)
