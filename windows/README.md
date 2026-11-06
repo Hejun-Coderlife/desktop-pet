@@ -1,7 +1,16 @@
 # Pip · Windows 版
 
-**用法**：双击 `Pip.exe`。Win10 / Win11 自带 .NET Framework 4.8，不用装任何东西；只有这一个文件。
-第一次打开如果弹出「Windows 已保护你的电脑」：点「更多信息」→「仍要运行」（没有买代码签名证书）。
+**发给别人用**：发安装包 `Pip-Setup-<版本>.exe`，双击一路「下一步」。Win10 / Win11（64 位）自带 .NET Framework 4.8，不用另装东西。
+- 装到当前用户的 `%LOCALAPPDATA%\Programs\Pip`，**不要管理员权限**；开始菜单 + 桌面图标，可选开机自启
+- 卸载：「设置 → 应用」里找「Pip 桌面宠物」，或开始菜单里的「卸载 Pip 桌面宠物」；会删掉程序、开机自启和设置（`HKCU\Software\Pip`）
+- 升级：直接装新版安装包，会先让正在跑的 Pip 退出再替换
+- 第一次运行安装包如果弹出「Windows 已保护你的电脑」：点「更多信息」→「仍要运行」（没有买代码签名证书）
+
+**不装也能用**：直接双击 `Pip.exe`（只有这一个文件）。开机自启记的是 exe 当时的位置，开了自启就别再挪它。
+
+**做安装包**（Inno Setup 6，免费；`winget install JRSoftware.InnoSetup`）：先 `dotnet build windows/Pip.csproj -c Release`，再
+`ISCC.exe windows\installer\Pip.iss` → `dist\Pip-Setup-1.0.0.exe`。版本号改 `Pip.iss` 顶上的 `AppVersion`。
+GitHub CI 每次也会出一份（产物 `Pip-Setup-Windows-x64`）。
 
 - 右下角托盘里有 Pip 的图标：右键 = 菜单（隐藏 / 暂停 / 爬窗口 / 跳舞 / 节日装扮 / 举牌提醒 / 提醒间隔 / 开机自动启动 / 退出）
 - 在 Pip 身上点右键也是同一个菜单

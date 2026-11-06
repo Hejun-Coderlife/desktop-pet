@@ -63,3 +63,18 @@ jobs:
         with:
           name: Pip-Windows-x64
           path: windows/bin/Release/net48/Pip.exe
+
+      # 安装包（Inno Setup 6，免费）：runner 上没有就用 choco 装
+      - name: Installer
+        run: |
+          $iscc = @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\Inno Setup 6\ISCC.exe", "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $iscc) { choco install innosetup -y --no-progress | Out-Null; $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
+          & $iscc /Q windows/installer/Pip.iss
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          Get-ChildItem dist
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pip-Setup-Windows-x64
+          path: dist/Pip-Setup-*.exe
