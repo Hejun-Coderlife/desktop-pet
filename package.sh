@@ -21,6 +21,7 @@ mkdir -p "$DIST/$APP_NAME.app/Contents/MacOS"
 mkdir -p "$DIST/$APP_NAME.app/Contents/Resources"
 cp "$BIN" "$DIST/$APP_NAME.app/Contents/MacOS/$APP_NAME"
 cp "Resources/Info.plist" "$DIST/$APP_NAME.app/Contents/Info.plist"
+cp -R "Resources/sounds" "$DIST/$APP_NAME.app/Contents/Resources/sounds"
 cp "Resources/AppIcon.icns" "$DIST/$APP_NAME.app/Contents/Resources/AppIcon.icns"
 chmod +x "$DIST/$APP_NAME.app/Contents/MacOS/$APP_NAME"
 

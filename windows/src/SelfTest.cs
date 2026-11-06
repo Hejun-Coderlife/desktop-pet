@@ -200,6 +200,7 @@ namespace Pip
                 mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, UIntPtr.Zero);
             }));
             steps.Add((3.15, () => { sawFalling = stage.World.State == PetState.Falling; Line($"  松手后：{stage.World.State.Name()} 速度 ({stage.World.VX:0},{stage.World.VY:0})"); if (!sawFalling) Fail("松手后没有掉下来"); }));
+            steps.Add((3.3, () => { waitFor = () => stage.World.State != PetState.Falling && stage.World.State != PetState.Grabbed; waitDeadline = sw.Elapsed.TotalSeconds + 20; }));
             steps.Add((4.6, () =>
             {
                 Line("  落地后：" + stage.Describe());
@@ -271,6 +272,7 @@ namespace Pip
                 if (stage.World.OnPlatform) Fail("窗口关了还站在空中");
                 stage.RemindNow();
             }));
+            steps.Add((11.1, () => { waitFor = () => stage.World.State == PetState.Sign; waitDeadline = sw.Elapsed.TotalSeconds + 20; }));
             steps.Add((12.0, () => { Shot("live-4-sign.png"); Line("  举牌：" + stage.Describe()); if (stage.World.State != PetState.Sign) Fail("现在提醒一下 没举牌"); }));
             steps.Add((12.5, () => Application.ExitThread()));
 
