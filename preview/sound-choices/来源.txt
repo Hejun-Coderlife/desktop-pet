@@ -1,0 +1,8 @@
+全部 CC0（公有领域，可商用、可改、可随软件分发，不要求署名）
+- cute_*/misc_*/ooh/breath/snore：OpenGameArt「80 CC0 creature SFX」https://opengameart.org/content/80-cc0-creature-sfx
+- purr_1 = Freesound 424355 (Minscer)；purr_2 = 640475 (LucasDuff)；purr_3 = 779220 (scwambled)；purr_4 = 364893 (TiesWijnen)
+- meow_short1 = 448018 (Lupsi)；meow_short2 = 686775 (nathan-osman)；meow_3 = 756236 (Vrymaa)；meow_4 = 728095 (KVV_Audio)
+- squeak_1 = 686447 (donblaxter)；squeak_2 = 504904 (fiezewarthog)
+- giggle_1 = 343984、giggle_2 = 343992 (Reitanna)；giggle_3 = 737452 (Isaaaca)
+- yawn_dog = 827660 (qubodup)；jingle_1 = 858479 (TommasoMotteran)
+Freesound 链接格式：https://freesound.org/s/<编号>/
